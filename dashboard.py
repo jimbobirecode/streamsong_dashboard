@@ -740,7 +740,7 @@ st.markdown(f"""
         margin-bottom: 1rem;
     }}
     
-    /* Status Badges */
+    /* Status Badges - New Workflow */
     .status-badge {{
         padding: 0.375rem 0.875rem;
         border-radius: 20px;
@@ -748,29 +748,41 @@ st.markdown(f"""
         font-size: 0.8rem;
         display: inline-block;
     }}
-    
-    .status-pending {{ 
-        background: rgba(251, 191, 36, 0.2); 
-        color: #fbbf24; 
-        border: 1px solid rgba(251, 191, 36, 0.3); 
+
+    .status-inquiry {{
+        background: rgba(147, 197, 253, 0.2);
+        color: #60a5fa;
+        border: 1px solid rgba(147, 197, 253, 0.3);
     }}
-    
-    .status-confirmed {{ 
-        background: rgba(16, 185, 129, 0.2); 
-        color: #10b981; 
-        border: 1px solid rgba(16, 185, 129, 0.3); 
+
+    .status-requested {{
+        background: rgba(251, 191, 36, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.3);
     }}
-    
-    .status-rejected {{ 
-        background: rgba(239, 68, 68, 0.2); 
-        color: #ef4444; 
-        border: 1px solid rgba(239, 68, 68, 0.3); 
+
+    .status-confirmed {{
+        background: rgba(251, 146, 60, 0.2);
+        color: #fb923c;
+        border: 1px solid rgba(251, 146, 60, 0.3);
     }}
-    
-    .status-cancelled {{ 
-        background: rgba(156, 163, 175, 0.2); 
-        color: #9ca3af; 
-        border: 1px solid rgba(156, 163, 175, 0.3); 
+
+    .status-booked {{
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }}
+
+    .status-rejected {{
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }}
+
+    .status-cancelled {{
+        background: rgba(156, 163, 175, 0.2);
+        color: #9ca3af;
+        border: 1px solid rgba(156, 163, 175, 0.3);
     }}
     
     /* Hide Streamlit branding */
@@ -792,7 +804,7 @@ def load_bookings_from_db(club_filter):
         
         # Query bookings filtered by club
         cursor.execute("""
-            SELECT 
+            SELECT
                 id,
                 booking_id,
                 guest_email,
@@ -807,7 +819,16 @@ def load_bookings_from_db(club_filter):
                 customer_confirmed_at,
                 updated_at,
                 updated_by,
-                created_at
+                created_at,
+                hotel_checkin,
+                hotel_checkout,
+                hotel_nights,
+                hotel_rooms,
+                hotel_cost,
+                lodging_intent,
+                golf_dates,
+                golf_courses,
+                selected_tee_times
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
@@ -999,24 +1020,28 @@ def generate_excel_report(df, report_name="Booking_Report"):
             # Create summary sheet
             summary_data = {
                 'Metric': [
-                    'Total Bookings', 
-                    'Pending', 
-                    'Confirmed', 
-                    'Rejected', 
+                    'Total Bookings',
+                    'Inquiry',
+                    'Requested',
+                    'Confirmed',
+                    'Booked',
+                    'Rejected',
                     'Cancelled',
-                    'Total Revenue (Confirmed)', 
-                    'Potential Revenue (Pending)', 
+                    'Total Revenue (Booked)',
+                    'Potential Revenue (In Progress)', 
                     'Average Booking Value', 
                     'Total Players'
                 ],
                 'Value': [
                     len(df),
-                    len(df[df['status'] == 'Pending']),
+                    len(df[df['status'] == 'Inquiry']),
+                    len(df[df['status'] == 'Requested']),
                     len(df[df['status'] == 'Confirmed']),
+                    len(df[df['status'] == 'Booked']),
                     len(df[df['status'] == 'Rejected']),
                     len(df[df['status'] == 'Cancelled']),
-                    f"€{df[df['status'] == 'Confirmed']['total'].sum():,.2f}",
-                    f"€{df[df['status'] == 'Pending']['total'].sum():,.2f}",
+                    f"€{df[df['status'] == 'Booked']['total'].sum():,.2f}",
+                    f"€{df[df['status'].isin(['Inquiry', 'Requested', 'Confirmed'])]['total'].sum():,.2f}",
                     f"€{df['total'].mean():,.2f}",
                     int(df['players'].sum())
                 ]
@@ -1117,11 +1142,13 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 🎯 Quick Stats")
-    
+
     if not df_filtered.empty:
         st.metric("Total Bookings", f"{len(df_filtered):,}")
-        st.metric("Pending", f"{len(df_filtered[df_filtered['status'] == 'Pending']):,}")
+        st.metric("Inquiry", f"{len(df_filtered[df_filtered['status'] == 'Inquiry']):,}")
+        st.metric("Requested", f"{len(df_filtered[df_filtered['status'] == 'Requested']):,}")
         st.metric("Confirmed", f"{len(df_filtered[df_filtered['status'] == 'Confirmed']):,}")
+        st.metric("Booked", f"{len(df_filtered[df_filtered['status'] == 'Booked']):,}")
     
     st.markdown("---")
     st.markdown("### 🔍 Filters")
@@ -1193,22 +1220,26 @@ tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📋 Manage Bookings", "📊 Repo
 
 with tab1:
     if not df_filtered.empty:
-        col1, col2, col3, col4 = st.columns(4)
-        
+        col1, col2, col3, col4, col5 = st.columns(5)
+
         total_bookings = len(df_filtered)
-        pending_count = len(df_filtered[df_filtered['status'] == 'Pending'])
+        inquiry_count = len(df_filtered[df_filtered['status'] == 'Inquiry'])
+        requested_count = len(df_filtered[df_filtered['status'] == 'Requested'])
         confirmed_count = len(df_filtered[df_filtered['status'] == 'Confirmed'])
-        total_revenue = df_filtered[df_filtered['status'] == 'Confirmed']['total'].sum()
-        pending_revenue = df_filtered[df_filtered['status'] == 'Pending']['total'].sum()
-        
+        booked_count = len(df_filtered[df_filtered['status'] == 'Booked'])
+        total_revenue = df_filtered[df_filtered['status'] == 'Booked']['total'].sum()
+        potential_revenue = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested', 'Confirmed'])]['total'].sum()
+
         with col1:
-            st.metric("Total Bookings", f"{total_bookings:,}")
+            st.metric("Total", f"{total_bookings:,}")
         with col2:
-            st.metric("Pending", f"{pending_count:,}")
+            st.metric("Inquiry", f"{inquiry_count:,}")
         with col3:
-            st.metric("Confirmed", f"{confirmed_count:,}")
+            st.metric("Requested", f"{requested_count:,}")
         with col4:
-            st.metric("Revenue", f"€{total_revenue:,.0f}", f"€{pending_revenue:,.0f} pending")
+            st.metric("Confirmed", f"{confirmed_count:,}")
+        with col5:
+            st.metric("Booked", f"{booked_count:,}", f"€{total_revenue:,.0f}")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1251,30 +1282,78 @@ with tab1:
 
 with tab2:
     st.markdown("### 📋 Booking Management")
-    
+
     if not df_filtered.empty:
-        pending_bookings = df_filtered[df_filtered['status'] == 'Pending']
-        
-        if len(pending_bookings) > 0:
-            st.markdown(f"#### ⏳ {len(pending_bookings)} Pending Bookings")
+        # Show Inquiry and Requested bookings (awaiting action)
+        active_bookings = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested'])]
+
+        if len(active_bookings) > 0:
+            st.markdown(f"#### ⚡ {len(active_bookings)} Active Bookings (Inquiry + Requested)")
             
-            for idx, booking in pending_bookings.iterrows():
+            for idx, booking in active_bookings.iterrows():
                 booking_id = booking.get('booking_id', booking.get('id', f"{booking['timestamp']}_{booking['guest_email']}"))
                 tee_time_display = booking.get('tee_time', 'Not specified')
-                
-                with st.expander(f"📧 {booking['guest_email']} • 🗓️ {booking['date'].strftime('%Y-%m-%d')} {tee_time_display} • 👥 {booking['players']} players • 💰 €{booking['total']:,.2f}"):
+
+                # Status badge
+                status = booking['status']
+                status_icon = "📧" if status == "Inquiry" else "📬"
+                status_badge_class = f"status-{status.lower()}"
+
+                # Hotel info summary
+                hotel_summary = ""
+                if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
+                    hotel_summary = f"🏨 {booking['hotel_nights']}N ({booking.get('hotel_checkin', '')} - {booking.get('hotel_checkout', '')})"
+                else:
+                    hotel_summary = "🏨 No lodging"
+
+                with st.expander(f"{status_icon} **{status}** • {booking['guest_email']} • 🗓️ {booking['date'].strftime('%Y-%m-%d')} • 👥 {booking['players']}p • {hotel_summary} • 💰 €{booking['total']:,.2f}"):
                     col1, col2 = st.columns([2, 1])
                     
                     with col1:
+                        # Build hotel info display
+                        hotel_display = ""
+                        if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
+                            hotel_display = f"""
+                        **🏨 HOTEL INFORMATION:**
+                        **Check-in:** {booking['hotel_checkin']}
+                        **Check-out:** {booking['hotel_checkout']}
+                        **Nights:** {booking.get('hotel_nights', 'N/A')}
+                        **Rooms:** {booking.get('hotel_rooms', 'N/A')}
+                        **Hotel Cost:** €{booking.get('hotel_cost', 0):,.2f}
+                        **Lodging Intent:** {booking.get('lodging_intent', 'N/A')}
+                        """
+                        else:
+                            hotel_display = "**🏨 Hotel:** Golf only (no lodging)"
+
+                        # Build golf info display
+                        golf_dates_display = booking.get('golf_dates', [])
+                        if isinstance(golf_dates_display, list) and golf_dates_display:
+                            golf_dates_str = ", ".join(golf_dates_display)
+                        else:
+                            golf_dates_str = booking['date'].strftime('%Y-%m-%d') if booking.get('date') else 'N/A'
+
                         st.markdown(f"""
-                        **📧 Guest Email:** {booking['guest_email']}  
-                        **📅 Date:** {booking['date'].strftime('%Y-%m-%d')}  
-                        **🕐 Tee Time:** {tee_time_display}  
-                        **👥 Players:** {booking['players']}  
-                        **💰 Total:** €{booking['total']:,.2f}  
-                        **🔖 Booking Ref:** `{booking_id}`  
-                        **📝 Current Note:** {booking.get('note', 'N/A')}
-                        """)
+                        **📧 Guest Email:** {booking['guest_email']}
+                        **🔖 Booking Ref:** `{booking_id}`
+                        **🚦 Status:** <span class="{status_badge_class}">{status}</span>
+
+                        ---
+
+                        **⛳ GOLF INFORMATION:**
+                        **Golf Dates:** {golf_dates_str}
+                        **Courses:** {booking.get('golf_courses', 'Any')}
+                        **Tee Time:** {tee_time_display}
+                        **Players:** {booking['players']}
+
+                        ---
+
+                        {hotel_display}
+
+                        ---
+
+                        **💰 Total:** €{booking['total']:,.2f}
+                        **📝 Note:** {booking.get('note', 'N/A')}
+                        """, unsafe_allow_html=True)
                         
                         # Notes section
                         st.markdown("---")
@@ -1336,7 +1415,21 @@ with tab2:
                                     st.error("❌ Please enter a note")
                     
                     with col2:
-                        action = st.radio("Action", ["No Change", "✅ Confirm", "❌ Reject"], key=f"pending_action_{idx}")
+                        st.markdown(f"""
+                        <div class="status-badge {status_badge_class}" style="margin-bottom: 1rem; display: block; text-align: center;">
+                            {status}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # Dynamic action options based on current status
+                        if status == "Inquiry":
+                            action_options = ["No Change", "📬 → Requested", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
+                        elif status == "Requested":
+                            action_options = ["No Change", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
+                        else:  # Catch-all
+                            action_options = ["No Change", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
+
+                        action = st.radio("Update Status", action_options, key=f"pending_action_{idx}")
                         send_email = st.checkbox("Send Email", value=True, key=f"pending_email_{idx}")
                         
                         # Delete button with confirmation
@@ -1356,45 +1449,44 @@ with tab2:
                         st.markdown("---")
                         
                         if st.button("💾 Update Status", key=f"pending_update_{idx}", use_container_width=True):
-                            if action == "✅ Confirm":
-                                with st.spinner(f"⏳ Confirming booking for {booking['guest_email']}..."):
-                                    if update_booking_status(booking_id, 'Confirmed', updated_by=st.session_state.username):
-                                        # Add automatic note
-                                        add_booking_note(booking_id, f"Booking confirmed via dashboard", st.session_state.username, 'general')
-                                        
-                                        if send_email:
-                                            with st.spinner("📧 Sending confirmation email..."):
-                                                booking_data = {
-                                                    'guest_email': booking['guest_email'],
-                                                    'date': booking['date'].strftime('%Y-%m-%d'),
-                                                    'players': booking['players'],
-                                                    'total': booking['total']
-                                                }
-                                                send_confirmation_email(booking_data, 'Confirmed')
-                                        
-                                        st.success("✅ Booking confirmed!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    
+                            new_status = None
+                            action_msg = ""
+
+                            # Map action to new status
+                            if action == "📬 → Requested":
+                                new_status = "Requested"
+                                action_msg = "moved to Requested"
+                            elif action == "✅ → Confirmed":
+                                new_status = "Confirmed"
+                                action_msg = "confirmed (payment info sent)"
+                            elif action == "🎯 → Booked":
+                                new_status = "Booked"
+                                action_msg = "marked as Booked (payment received)"
                             elif action == "❌ Reject":
-                                with st.spinner(f"⏳ Rejecting booking for {booking['guest_email']}..."):
-                                    if update_booking_status(booking_id, 'Rejected', updated_by=st.session_state.username):
+                                new_status = "Rejected"
+                                action_msg = "rejected"
+
+                            if new_status:
+                                with st.spinner(f"⏳ Updating booking for {booking['guest_email']}..."):
+                                    if update_booking_status(booking_id, new_status, updated_by=st.session_state.username):
                                         # Add automatic note
-                                        add_booking_note(booking_id, f"Booking rejected via dashboard", st.session_state.username, 'general')
-                                        
-                                        if send_email:
-                                            with st.spinner("📧 Sending rejection email..."):
+                                        add_booking_note(booking_id, f"Status updated to {new_status} via dashboard", st.session_state.username, 'general')
+
+                                        if send_email and new_status in ['Confirmed', 'Booked', 'Rejected']:
+                                            with st.spinner("📧 Sending email..."):
                                                 booking_data = {
                                                     'guest_email': booking['guest_email'],
                                                     'date': booking['date'].strftime('%Y-%m-%d'),
                                                     'players': booking['players'],
                                                     'total': booking['total']
                                                 }
-                                                send_confirmation_email(booking_data, 'Rejected')
-                                        
-                                        st.success("❌ Booking rejected")
+                                                send_confirmation_email(booking_data, new_status)
+
+                                        st.success(f"✅ Booking {action_msg}!")
                                         st.cache_data.clear()
                                         st.rerun()
+                            else:
+                                st.info("No changes made")
         
         st.markdown("---")
         st.markdown(f"#### ✏️ All Bookings ({len(df_filtered)} records)")
@@ -1441,16 +1533,26 @@ with tab2:
         
         st.dataframe(display_df, use_container_width=True)
         
-        # Show confirmed bookings with details and notes
-        confirmed_bookings = df_searchable[df_searchable['status'] == 'Confirmed']
-        if len(confirmed_bookings) > 0:
+        # Show Confirmed and Booked bookings with details and notes
+        completed_bookings = df_searchable[df_searchable['status'].isin(['Confirmed', 'Booked'])]
+        if len(completed_bookings) > 0:
             st.markdown("---")
-            st.markdown(f"#### ✅ Confirmed Bookings ({len(confirmed_bookings)} bookings)")
+            st.markdown(f"#### ✅ Confirmed & Booked ({len(completed_bookings)} bookings)")
             
-            for idx, booking in confirmed_bookings.iterrows():
+            for idx, booking in completed_bookings.iterrows():
                 booking_id = booking.get('booking_id', booking.get('id', 'N/A'))
                 tee_time_display = booking.get('tee_time', 'Not specified')
-                
+                status = booking['status']
+                status_icon = "🎯" if status == "Booked" else "✅"
+                status_badge_class = f"status-{status.lower()}"
+
+                # Hotel info summary
+                hotel_summary = ""
+                if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
+                    hotel_summary = f"🏨 {booking['hotel_nights']}N"
+                else:
+                    hotel_summary = "⛳ Golf Only"
+
                 # Handle confirmed_at for both datetime objects and strings
                 confirmed_at = booking.get('customer_confirmed_at')
                 if pd.notnull(confirmed_at) and confirmed_at != '':
@@ -1469,21 +1571,55 @@ with tab2:
                         confirmed_at_str = str(confirmed_at) if confirmed_at else 'Via dashboard'
                 else:
                     confirmed_at_str = 'Via dashboard'
-                
-                with st.expander(f"✅ {booking['guest_email']} • {booking['date'].strftime('%Y-%m-%d')} {tee_time_display} • {booking['players']} players"):
+
+                with st.expander(f"{status_icon} **{status}** • {booking['guest_email']} • {booking['date'].strftime('%Y-%m-%d')} • 👥 {booking['players']}p • {hotel_summary} • €{booking['total']:,.2f}"):
                     col1, col2 = st.columns([2, 1])
                     
                     with col1:
+                        # Build hotel info display
+                        hotel_display = ""
+                        if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
+                            hotel_display = f"""
+                        **🏨 HOTEL INFORMATION:**
+                        **Check-in:** {booking['hotel_checkin']}
+                        **Check-out:** {booking['hotel_checkout']}
+                        **Nights:** {booking.get('hotel_nights', 'N/A')}
+                        **Rooms:** {booking.get('hotel_rooms', 'N/A')}
+                        **Hotel Cost:** €{booking.get('hotel_cost', 0):,.2f}
+                        """
+                        else:
+                            hotel_display = "**🏨 Hotel:** Golf only (no lodging)"
+
+                        # Build golf info display
+                        golf_dates_display = booking.get('golf_dates', [])
+                        if isinstance(golf_dates_display, list) and golf_dates_display:
+                            golf_dates_str = ", ".join(golf_dates_display)
+                        else:
+                            golf_dates_str = booking['date'].strftime('%Y-%m-%d') if booking.get('date') else 'N/A'
+
                         st.markdown(f"""
-                        **📧 Customer Email:** {booking['guest_email']}  
-                        **🔖 Booking Reference:** `{booking_id}`  
-                        **📅 Date:** {booking['date'].strftime('%Y-%m-%d')}  
-                        **🕐 Tee Time:** {tee_time_display}  
-                        **👥 Players:** {booking['players']}  
-                        **💰 Total:** €{booking['total']:,.2f}  
-                        **✅ Confirmed At:** {confirmed_at_str}  
+                        **📧 Customer Email:** {booking['guest_email']}
+                        **🔖 Booking Reference:** `{booking_id}`
+                        **🚦 Status:** <span class="{status_badge_class}">{status}</span>
+                        **✅ Confirmed At:** {confirmed_at_str}
+
+                        ---
+
+                        **⛳ GOLF INFORMATION:**
+                        **Golf Dates:** {golf_dates_str}
+                        **Courses:** {booking.get('golf_courses', 'Any')}
+                        **Tee Time:** {tee_time_display}
+                        **Players:** {booking['players']}
+
+                        ---
+
+                        {hotel_display}
+
+                        ---
+
+                        **💰 Total:** €{booking['total']:,.2f}
                         **📝 Note:** {booking.get('note', 'N/A')}
-                        """)
+                        """, unsafe_allow_html=True)
                         
                         # Notes section for confirmed bookings
                         st.markdown("---")
@@ -1544,7 +1680,11 @@ with tab2:
                                     st.error("❌ Please enter a note")
                     
                     with col2:
-                        st.success("✅ Confirmed")
+                        st.markdown(f"""
+                        <div class="status-badge {status_badge_class}" style="margin-bottom: 1rem; display: block; text-align: center;">
+                            {status}
+                        </div>
+                        """, unsafe_allow_html=True)
                         
                         # Show who updated it
                         updated_by = booking.get('updated_by', 'Unknown')
@@ -1572,18 +1712,19 @@ with tab3:
         col1, col2, col3, col4 = st.columns(4)
         
         total_bookings = len(df_filtered)
+        booked_revenue = df_filtered[df_filtered['status'] == 'Booked']['total'].sum()
         confirmed_revenue = df_filtered[df_filtered['status'] == 'Confirmed']['total'].sum()
-        pending_revenue = df_filtered[df_filtered['status'] == 'Pending']['total'].sum()
+        in_progress_revenue = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested'])]['total'].sum()
         avg_booking_value = df_filtered['total'].mean()
-        
+
         with col1:
             st.metric("Total Bookings", f"{total_bookings:,}")
         with col2:
-            st.metric("Confirmed Revenue", f"€{confirmed_revenue:,.2f}")
+            st.metric("Booked Revenue", f"€{booked_revenue:,.2f}")
         with col3:
-            st.metric("Pending Revenue", f"€{pending_revenue:,.2f}")
+            st.metric("Confirmed Revenue", f"€{confirmed_revenue:,.2f}")
         with col4:
-            st.metric("Avg Booking Value", f"€{avg_booking_value:,.2f}")
+            st.metric("In Progress Revenue", f"€{in_progress_revenue:,.2f}")
         
         st.markdown("---")
         st.markdown("#### 📥 Export Options")
@@ -1615,9 +1756,9 @@ with tab3:
             )
         
         st.markdown("---")
-        st.markdown("#### 📈 Revenue Timeline")
-        
-        revenue_timeline = df_filtered[df_filtered['status'] == 'Confirmed'].groupby(df_filtered['date'].dt.date)['total'].sum().reset_index()
+        st.markdown("#### 📈 Revenue Timeline (Booked Only)")
+
+        revenue_timeline = df_filtered[df_filtered['status'] == 'Booked'].groupby(df_filtered['date'].dt.date)['total'].sum().reset_index()
         revenue_timeline.columns = ['Date', 'Revenue']
         
         fig_revenue = go.Figure(data=[go.Bar(
