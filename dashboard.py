@@ -833,23 +833,35 @@ with col4:
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
 # Booking cards
+if len(date_range) == 2:
+    date_str = f"{date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}"
+else:
+    date_str = "all dates"
+
 st.markdown(f"""
     <div style='margin-bottom: 1.5rem;'>
         <h3 style='color: #f9fafb; font-weight: 600; font-size: 1.125rem;'>{len(filtered_df)} Active Requests</h3>
-        <p style='color: #64748b; font-size: 0.875rem; margin-top: 0.25rem;'>Showing bookings from {date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}</p>
+        <p style='color: #64748b; font-size: 0.875rem; margin-top: 0.25rem;'>Showing bookings from {date_str}</p>
     </div>
 """, unsafe_allow_html=True)
 
 for idx, booking in filtered_df.iterrows():
+    # Status timeline with icon
+    status_icon = get_status_icon(booking['status'])
+    status_class = get_status_color(booking['status'])
+    
+    # Handle None values
+    tee_time_display = booking.get('tee_time', 'Not Specified')
+    if tee_time_display == 'None' or tee_time_display is None or pd.isna(tee_time_display):
+        tee_time_display = 'Not Specified'
+    
+    note_content = booking.get('note', '')
+    if note_content is None or pd.isna(note_content):
+        note_content = 'No additional information provided'
+    
+    # Create card container with custom styling
     with st.container():
-        # Status timeline with icon
-        status_icon = get_status_icon(booking['status'])
-        status_class = get_status_color(booking['status'])
-        
-        tee_time_display = booking.get('tee_time', 'Not Specified')
-        if tee_time_display == 'None' or tee_time_display is None:
-            tee_time_display = 'Not Specified'
-        
+        # Header section
         st.markdown(f"""
             <div class='booking-card'>
                 <div class='booking-header'>
@@ -871,60 +883,69 @@ for idx, booking in filtered_df.iterrows():
                         </div>
                     </div>
                 </div>
-                
-                <div class='booking-body'>
-                    <div class='data-grid'>
-                        <div class='data-cell'>
-                            <div class='data-label'>📅 Tee Time Date</div>
-                            <div class='data-value'>{booking['date'].strftime('%b %d, %Y')}</div>
-                        </div>
-                        
-                        <div class='data-cell'>
-                            <div class='data-label'>⏰ Time</div>
-                            <div class='data-value'>{tee_time_display}</div>
-                        </div>
-                        
-                        <div class='data-cell'>
-                            <div class='data-label'>👥 Players</div>
-                            <div class='data-value'>{booking['players']} Player{'s' if booking['players'] != 1 else ''}</div>
-                        </div>
-                        
-                        <div class='data-cell'>
-                            <div class='data-label'>💰 Total Amount</div>
-                            <div class='data-value-large'>${booking['total']:,.2f}</div>
-                        </div>
-                    </div>
-                </div>
             </div>
         """, unsafe_allow_html=True)
         
+        # Body section with Streamlit columns for better layout
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown("""
+                <div class='data-label'>📅 Tee Time Date</div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"**{booking['date'].strftime('%b %d, %Y')}**")
+        
+        with col2:
+            st.markdown("""
+                <div class='data-label'>⏰ Time</div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"**{tee_time_display}**")
+        
+        with col3:
+            st.markdown("""
+                <div class='data-label'>👥 Players</div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"**{booking['players']} Player{'s' if booking['players'] != 1 else ''}**")
+        
+        with col4:
+            st.markdown("""
+                <div class='data-label'>💰 Total Amount</div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"<div class='data-value-large'>${booking['total']:,.2f}</div>", unsafe_allow_html=True)
+        
         # Expandable section for details
         with st.expander("📄 View Full Details", expanded=False):
-            col1, col2 = st.columns([2, 1])
+            detail_col1, detail_col2 = st.columns([2, 1])
             
-            with col1:
+            with detail_col1:
                 # Email content section
-                if booking.get('note'):
-                    st.markdown(f"""
-                        <div class='email-section'>
-                            <div class='email-header'>
-                                📧 Original Request
-                            </div>
-                            <div class='email-content'>{booking['note']}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                st.markdown("""
+                    <div class='email-header'>
+                        📧 ORIGINAL REQUEST
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Display email content in a nice container
+                st.text_area(
+                    label="Email Content",
+                    value=note_content,
+                    height=200,
+                    disabled=True,
+                    label_visibility="collapsed",
+                    key=f"email_{booking['booking_id']}"
+                )
                 
                 # Additional info
-                if booking.get('updated_by'):
+                if booking.get('updated_by') and not pd.isna(booking.get('updated_by')):
                     st.markdown(f"""
                         <div style='margin-top: 1.5rem; padding: 1rem; background: #0f1419; border-radius: 8px; border: 1px solid #1e293b;'>
-                            <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Last Updated</div>
-                            <div style='color: #cbd5e1; font-size: 0.875rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
+                            <div class='data-label'>LAST UPDATED</div>
+                            <div style='color: #cbd5e1; font-size: 0.875rem; margin-top: 0.5rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
                             <div style='color: #64748b; font-size: 0.8125rem; margin-top: 0.25rem;'>by {booking['updated_by']}</div>
                         </div>
                     """, unsafe_allow_html=True)
             
-            with col2:
+            with detail_col2:
                 st.markdown("#### ⚡ Quick Actions")
                 
                 # Status update buttons
@@ -953,6 +974,7 @@ for idx, booking in filtered_df.iterrows():
                 
                 # Reject/Cancel options
                 if current_status not in ['Rejected', 'Cancelled', 'Booked']:
+                    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
                     if st.button("❌ Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
                             st.warning("Booking rejected")
