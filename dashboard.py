@@ -6,9 +6,6 @@ import psycopg
 from psycopg.rows import dict_row
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from io import BytesIO
 
 # ========================================
@@ -66,30 +63,21 @@ def authenticate_user(username: str, password: str):
                 return True, user['customer_id'], user['full_name'], True, user['id']
         
         # Check regular password
-        if user['password_hash']:
-            if verify_password(password, user['password_hash']):
-                # Update last_login
-                cursor.execute("""
-                    UPDATE dashboard_users 
-                    SET last_login = CURRENT_TIMESTAMP
-                    WHERE id = %s;
-                """, (user['id'],))
-                conn.commit()
-                
-                cursor.close()
-                conn.close()
-                return True, user['customer_id'], user['full_name'], user['must_change_password'], user['id']
+        if user['password_hash'] and verify_password(password, user['password_hash']):
+            cursor.close()
+            conn.close()
+            return True, user['customer_id'], user['full_name'], False, user['id']
         
         cursor.close()
         conn.close()
         return False, None, None, False, None
-            
     except Exception as e:
-        st.error(f"Database error: {e}")
+        st.error(f"Authentication error: {e}")
         return False, None, None, False, None
 
-def set_new_password(user_id: int, new_password: str):
-    """Set new password for user (first time setup)"""
+
+def set_permanent_password(user_id: int, new_password: str):
+    """Set permanent password and clear temp password"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -97,12 +85,11 @@ def set_new_password(user_id: int, new_password: str):
         password_hash = hash_password(new_password)
         
         cursor.execute("""
-            UPDATE dashboard_users 
+            UPDATE dashboard_users
             SET password_hash = %s,
                 temp_password = NULL,
                 must_change_password = FALSE,
-                password_changed_at = CURRENT_TIMESTAMP,
-                last_login = CURRENT_TIMESTAMP
+                last_login = NOW()
             WHERE id = %s;
         """, (password_hash, user_id))
         
@@ -110,208 +97,78 @@ def set_new_password(user_id: int, new_password: str):
         cursor.close()
         conn.close()
         return True
-        
     except Exception as e:
         st.error(f"Error setting password: {e}")
         return False
 
-# ========================================
-# NOTES FUNCTIONS
-# ========================================
-def add_booking_note(booking_id: str, note: str, created_by: str, note_type: str = 'general', is_internal: bool = True):
-    """Add a note to a booking (using history table if it exists, otherwise update main note field)"""
+
+def update_last_login(user_id: int):
+    """Update last login timestamp"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Try to use booking_notes table first (if it exists)
-        try:
-            cursor.execute("""
-                INSERT INTO booking_notes (booking_id, note, created_by, note_type, is_internal)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (booking_id, note, created_by, note_type, is_internal))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return True
-        except:
-            # If booking_notes table doesn't exist, append to main note field
-            cursor.execute("""
-                UPDATE bookings 
-                SET note = CASE 
-                    WHEN note IS NULL OR note = '' THEN %s
-                    ELSE note || E'\n---\n' || %s
-                END,
-                updated_at = CURRENT_TIMESTAMP,
-                updated_by = %s
-                WHERE booking_id = %s
-            """, (f"[{created_by}] {note}", f"[{created_by}] {note}", created_by, booking_id))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return True
-            
-    except Exception as e:
-        st.error(f"Error adding note: {e}")
-        return False
-
-def get_booking_notes(booking_id: str):
-    """Get all notes for a booking"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(row_factory=dict_row)
-        
-        # Try booking_notes table first
-        try:
-            cursor.execute("""
-                SELECT note, created_by, created_at, note_type, is_internal
-                FROM booking_notes
-                WHERE booking_id = %s
-                ORDER BY created_at DESC
-            """, (booking_id,))
-            notes = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            return notes
-        except:
-            # Fall back to main note field
-            cursor.execute("""
-                SELECT note, updated_by as created_by, updated_at as created_at
-                FROM bookings
-                WHERE booking_id = %s
-            """, (booking_id,))
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
-            
-            if result and result['note']:
-                # Parse concatenated notes
-                notes = []
-                for note_text in result['note'].split('\n---\n'):
-                    notes.append({
-                        'note': note_text,
-                        'created_by': result.get('created_by', 'Unknown'),
-                        'created_at': result.get('created_at'),
-                        'note_type': 'general',
-                        'is_internal': True
-                    })
-                return notes
-            return []
-            
-    except Exception as e:
-        st.error(f"Error fetching notes: {e}")
-        return []
-
-def update_booking_note(booking_id: str, note: str, updated_by: str):
-    """Update the main booking note field"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            UPDATE bookings 
-            SET note = %s,
-                updated_at = CURRENT_TIMESTAMP,
-                updated_by = %s
-            WHERE booking_id = %s
-        """, (note, updated_by, booking_id))
-        
+        cursor.execute("UPDATE dashboard_users SET last_login = NOW() WHERE id = %s;", (user_id,))
         conn.commit()
         cursor.close()
         conn.close()
-        return True
-        
     except Exception as e:
-        st.error(f"Error updating note: {e}")
-        return False
+        st.error(f"Error updating last login: {e}")
 
-def delete_booking(booking_id: str):
-    """Delete a booking permanently"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Delete notes first (foreign key constraint)
-        try:
-            cursor.execute("DELETE FROM booking_notes WHERE booking_id = %s", (booking_id,))
-        except:
-            pass  # Table might not exist
-        
-        # Delete the booking
-        cursor.execute("DELETE FROM bookings WHERE booking_id = %s", (booking_id,))
-        deleted = cursor.rowcount
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        return deleted > 0
-        
-    except Exception as e:
-        st.error(f"Error deleting booking: {e}")
-        return False
 
 # ========================================
-# CLUB CONFIGURATIONS with TeeMail Branding
+# BOOKING STATUS HELPERS
 # ========================================
-CLUBS = {
-    "streamsong": {
-        "name": "Streamsong Resort",
-        "api_url": os.getenv("STREAMSONG_API_URL", "https://streamsong-email-bot.onrender.com/api/bookings"),
-        "from_email": "streamsong@bookings.teemail.io",
-        "per_player_fee": 380.00,
-        "smtp_user": os.getenv("STREAMSONG_SMTP_USER", os.getenv("SENDGRID_API_KEY", "")),
-        "smtp_password": os.getenv("STREAMSONG_SMTP_PASSWORD", ""),
-        "club_filter": "streamsong",
-        "primary_color": "#1a5632",  # Streamsong Green
-        "secondary_color": "#2c7a4d"  # Light Streamsong Green
-    },
-    "skerries": {
-        "name": "Skerries Golf Club",
-        "api_url": os.getenv("SKERRIES_API_URL", "https://skerries-emailbot.onrender.com/api/bookings"),
-        "from_email": "bookings@skerriesgolfclub.ie",
-        "per_player_fee": 250.00,
-        "smtp_user": os.getenv("SKERRIES_SMTP_USER", ""),
-        "smtp_password": os.getenv("SKERRIES_SMTP_PASSWORD", ""),
-        "club_filter": "skerries",
-        "primary_color": "#10b981",  # Emerald Green
-        "secondary_color": "#059669"  # Dark Emerald
-    },
-    "baltray": {
-        "name": "County Louth Golf Club",
-        "api_url": os.getenv("COUNTYLOUTH_API_URL", "https://teemailsg-1.onrender.com/api/bookings"),
-        "from_email": "teetimes@countylouthgolfclub.com",
-        "per_player_fee": 325.00,
-        "smtp_user": os.getenv("COUNTYLOUTH_SMTP_USER", ""),
-        "smtp_password": os.getenv("COUNTYLOUTH_SMTP_PASSWORD", ""),
-        "club_filter": "baltray",
-        "primary_color": "#3b82f6",  # Bright Blue
-        "secondary_color": "#2563eb"
-    },
-    "ardglass": {
-        "name": "Ardglass Golf Club",
-        "api_url": os.getenv("ARDGLASS_API_URL", "https://ardglass-emailbot.onrender.com/api/bookings"),
-        "from_email": "bookings@ardglassgolfclub.com",
-        "per_player_fee": 200.00,
-        "smtp_user": os.getenv("ARDGLASS_SMTP_USER", ""),
-        "smtp_password": os.getenv("ARDGLASS_SMTP_PASSWORD", ""),
-        "club_filter": "ardglass",
-        "primary_color": "#a78bfa",  # Soft Purple
-        "secondary_color": "#8b5cf6"
+def get_status_icon(status: str) -> str:
+    """Get timeline icon for booking status"""
+    status_icons = {
+        'Inquiry': '🔵',
+        'Requested': '🟡', 
+        'Confirmed': '🟠',
+        'Booked': '✅',
+        'Rejected': '❌',
+        'Cancelled': '⚫',
+        'Pending': '🟡',  # Legacy fallback
     }
-}
+    return status_icons.get(status, '⚪')
 
-# API Configuration
-API_URL = os.getenv("API_URL", "https://teemailsg-1.onrender.com/api/bookings")
 
-# Global SMTP settings
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+def get_status_color(status: str) -> str:
+    """Get color class for status badge"""
+    status_map = {
+        'Inquiry': 'status-inquiry',
+        'Requested': 'status-requested',
+        'Confirmed': 'status-confirmed',
+        'Booked': 'status-booked',
+        'Rejected': 'status-rejected',
+        'Cancelled': 'status-cancelled',
+        'Pending': 'status-requested',  # Legacy fallback
+    }
+    return status_map.get(status, 'status-inquiry')
+
 
 # ========================================
-# SESSION STATE INITIALIZATION
+# SESSION STATE
 # ========================================
 if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'customer_id' not in st.session_state:
+    st.session_state.customer_id = None
+if 'username' not in st.session_state:
+    st.session_state.username = None
+if 'full_name' not in st.session_state:
+    st.session_state.full_name = None
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
+if 'must_change_password' not in st.session_state:
+    st.session_state.must_change_password = False
+if 'show_password_change' not in st.session_state:
+    st.session_state.show_password_change = False
+
+
+# ========================================
+# LOGOUT FUNCTION
+# ========================================
+def logout():
     st.session_state.authenticated = False
     st.session_state.customer_id = None
     st.session_state.username = None
@@ -319,6 +176,7 @@ if 'authenticated' not in st.session_state:
     st.session_state.user_id = None
     st.session_state.must_change_password = False
     st.session_state.show_password_change = False
+
 
 # ========================================
 # STREAMLIT PAGE CONFIG
@@ -331,335 +189,150 @@ st.set_page_config(
 )
 
 # ========================================
-# PASSWORD CHANGE SCREEN
+# STYLING
 # ========================================
-if st.session_state.show_password_change:
-    st.markdown("""
-        <style>
-        .main { background: linear-gradient(135deg, #0a0e1a 0%, #1e293b 100%); }
-        .password-container {
-            max-width: 500px;
-            margin: 100px auto;
-            padding: 2.5rem;
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            border-radius: 16px;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
-        .password-title {
-            color: #f9fafb;
-            font-size: 1.8rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 0.5rem;
-        }
-        .password-subtitle {
-            color: #94a3b8;
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 0.95rem;
-        }
-        .stButton > button {
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.75rem 2rem !important;
-            border-radius: 12px !important;
-            font-weight: 600 !important;
-            width: 100% !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="password-container">
-            <div class="password-title">🔐 Set Your Password</div>
-            <div class="password-subtitle">First-time setup - create your secure password</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.form("password_setup_form"):
-        st.info(f"👋 Welcome, **{st.session_state.full_name}**! Please create a secure password for your account.")
-        
-        new_password = st.text_input("New Password", type="password", help="Minimum 8 characters")
-        confirm_password = st.text_input("Confirm Password", type="password")
-        
-        submit = st.form_submit_button("Set Password", use_container_width=True)
-        
-        if submit:
-            if not new_password or not confirm_password:
-                st.error("❌ Please enter a password")
-            elif len(new_password) < 8:
-                st.error("❌ Password must be at least 8 characters")
-            elif new_password != confirm_password:
-                st.error("❌ Passwords do not match")
-            else:
-                if set_new_password(st.session_state.user_id, new_password):
-                    st.success("✅ Password set successfully! Redirecting to dashboard...")
-                    st.session_state.show_password_change = False
-                    st.session_state.authenticated = True
-                    st.session_state.must_change_password = False
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error("❌ Error setting password. Please try again.")
-    
-    st.markdown("""
-        <div style='text-align: center; color: #6b7280; font-size: 0.85rem; margin-top: 2rem;'>
-            <p>Your password is encrypted and stored securely</p>
-            <p style='font-size: 0.75rem; margin-top: 0.5rem;'>Powered by TeeMail</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.stop()
+PRIMARY_COLOR = "#10b981"
+SECONDARY_COLOR = "#059669"
+DARK_BG = "#0f172a"
 
-# ========================================
-# LOGIN SCREEN
-# ========================================
-if not st.session_state.authenticated:
-    st.markdown("""
-        <style>
-        .main { background: linear-gradient(135deg, #0a0e1a 0%, #1e293b 100%); }
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 2.5rem;
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            border-radius: 16px;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
-        .login-title {
-            color: #f9fafb;
-            font-size: 2.5rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 0.5rem;
-        }
-        .login-subtitle {
-            color: #94a3b8;
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 1rem;
-        }
-        .stButton > button {
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.75rem 2rem !important;
-            border-radius: 12px !important;
-            font-weight: 600 !important;
-            width: 100% !important;
-            transition: all 0.3s ease !important;
-        }
-        .stButton > button:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4) !important;
-        }
-        .stTextInput > div > div > input {
-            background: #0a0e1a !important;
-            border: 1px solid #334155 !important;
-            border-radius: 10px !important;
-            color: #f9fafb !important;
-            padding: 0.75rem !important;
-        }
-        .stTextInput > div > div > input:focus {
-            border-color: #10b981 !important;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="login-container">
-            <div class="login-title">🏌️ TeeMail</div>
-            <div class="login-subtitle">Dashboard Login</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    with st.form("login_form"):
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password", help="Use your temporary password for first login")
-        submit = st.form_submit_button("Login", use_container_width=True)
-        
-        if submit:
-            if username and password:
-                success, customer_id, full_name, must_change, user_id = authenticate_user(username, password)
-                
-                if success:
-                    st.session_state.customer_id = customer_id
-                    st.session_state.username = username
-                    st.session_state.full_name = full_name or username
-                    st.session_state.user_id = user_id
-                    st.session_state.must_change_password = must_change
-                    
-                    if must_change:
-                        # Redirect to password change screen
-                        st.session_state.show_password_change = True
-                        st.success("✅ Login successful! Please set your password...")
-                        st.rerun()
-                    else:
-                        # Normal login
-                        st.session_state.authenticated = True
-                        st.success("✅ Login successful!")
-                        st.rerun()
-                else:
-                    st.error("❌ Invalid username or password")
-            else:
-                st.error("❌ Please enter username and password")
-    
-    st.markdown("""
-        <div style='text-align: center; color: #6b7280; font-size: 0.85rem; margin-top: 2rem;'>
-            <p>First time? Use the temporary password provided by your administrator</p>
-            <p style='font-size: 0.75rem; margin-top: 0.5rem;'>Powered by TeeMail</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.stop()
-
-# ========================================
-# GET CUSTOMER CONFIG
-# ========================================
-CUSTOMER_ID = st.session_state.customer_id
-CLUB_CONFIG = CLUBS.get(CUSTOMER_ID, CLUBS['baltray'])
-
-CLUB_NAME = CLUB_CONFIG['name']
-FROM_EMAIL = CLUB_CONFIG['from_email']
-PER_PLAYER_FEE = CLUB_CONFIG['per_player_fee']
-CLUB_FILTER = CLUB_CONFIG['club_filter']
-PRIMARY_COLOR = CLUB_CONFIG['primary_color']
-SECONDARY_COLOR = CLUB_CONFIG['secondary_color']
-EMAIL_BOT_API_URL = CLUB_CONFIG['api_url']
-SMTP_USER = CLUB_CONFIG['smtp_user']
-SMTP_PASSWORD = CLUB_CONFIG['smtp_password']
-
-# ========================================
-# OPTE BRANDING STYLES
-# ========================================
 st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-    * {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
-    
-    /* TeeMail Dark Theme */
-    .main {{ background: #0a0e1a; }}
-    .block-container {{ padding-top: 2rem; padding-bottom: 2rem; }}
-    
-    /* Dashboard Header with Customer Branding */
-    .dashboard-header {{
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        padding: 2rem 2.5rem;
-        border-radius: 16px;
-        margin-bottom: 2rem;
-        border: 1px solid rgba(16, 185, 129, 0.2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    /* Global Styles */
+    .main {{
+        background: linear-gradient(135deg, {DARK_BG} 0%, #1e293b 100%);
     }}
     
-    .dashboard-title {{ 
-        color: #f9fafb; 
-        font-size: 2.25rem; 
-        font-weight: 700; 
-        margin: 0; 
-        letter-spacing: -0.02em; 
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+        border-right: 1px solid rgba(16, 185, 129, 0.2);
     }}
     
-    .dashboard-subtitle {{ 
-        color: #94a3b8; 
-        font-size: 1rem; 
-        margin-top: 0.5rem; 
-        font-weight: 400; 
-    }}
-    
-    /* Notes Styling */
-    .note-card {{
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        transition: all 0.2s ease;
-    }}
-    
-    .note-card:hover {{
-        border-color: {PRIMARY_COLOR};
-        background: #1a2332;
-    }}
-    
-    .note-header {{
-        display: flex;
-        justify-content: space-between;
-        color: #94a3b8;
-        font-size: 0.75rem;
-        margin-bottom: 0.5rem;
-    }}
-    
-    .note-content {{
-        color: #f9fafb;
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }}
-    
-    /* Form Styling */
-    .stTextArea > div > div > textarea {{
-        background: #1e293b !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        color: #f9fafb !important;
-        font-family: inherit !important;
-    }}
-    
-    .stTextArea > div > div > textarea:focus {{
-        border-color: {PRIMARY_COLOR} !important;
-        box-shadow: 0 0 0 2px rgba({int(PRIMARY_COLOR[1:3], 16)}, {int(PRIMARY_COLOR[3:5], 16)}, {int(PRIMARY_COLOR[5:7], 16)}, 0.2) !important;
-    }}
-    
-    .stSelectbox > div > div {{
-        background: #1e293b !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-    }}
-    
-    .stSelectbox > div > div:hover {{
-        border-color: {PRIMARY_COLOR} !important;
-    }}
-    
-    /* Metric Cards */
-    [data-testid="stMetricValue"] {{ 
-        font-size: 2.5rem; 
-        font-weight: 700; 
-        color: #f9fafb; 
-    }}
-    
-    [data-testid="stMetricLabel"] {{ 
-        font-size: 0.875rem; 
-        font-weight: 600; 
-        text-transform: uppercase; 
-        letter-spacing: 0.05em; 
-        color: #94a3b8; 
-    }}
-    
-    div[data-testid="metric-container"] {{
+    /* Cards */
+    .metric-card {{
         background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
         padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-radius: 16px;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         transition: all 0.3s ease;
     }}
     
-    div[data-testid="metric-container"]:hover {{ 
-        transform: translateY(-4px); 
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); 
-        border-color: {PRIMARY_COLOR}; 
+    .metric-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 28px rgba(16, 185, 129, 0.2);
     }}
     
-    /* Buttons with Customer Branding */
+    .booking-card {{
+        background: linear-gradient(135deg, #1e293b 0%, #2d3748 100%);
+        padding: 1.5rem;
+        border-radius: 16px;
+        border: 1px solid rgba(16, 185, 129, 0.15);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }}
+    
+    /* Email Content Styling */
+    .email-section {{
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }}
+    
+    .email-header {{
+        color: #10b981;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }}
+    
+    .email-content {{
+        background: #1e293b;
+        border-left: 3px solid #10b981;
+        padding: 1rem;
+        border-radius: 8px;
+        color: #e5e7eb;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }}
+    
+    /* Timeline Status */
+    .status-timeline {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }}
+    
+    .status-icon {{
+        font-size: 1.5rem;
+        line-height: 1;
+    }}
+    
+    /* Status Badges */
+    .status-badge {{
+        padding: 0.5rem 1rem;
+        border-radius: 24px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }}
+
+    .status-inquiry {{
+        background: rgba(147, 197, 253, 0.15);
+        color: #60a5fa;
+        border: 2px solid rgba(147, 197, 253, 0.3);
+    }}
+
+    .status-requested {{
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+        border: 2px solid rgba(251, 191, 36, 0.3);
+    }}
+
+    .status-confirmed {{
+        background: rgba(251, 146, 60, 0.15);
+        color: #fb923c;
+        border: 2px solid rgba(251, 146, 60, 0.3);
+    }}
+
+    .status-booked {{
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 2px solid rgba(16, 185, 129, 0.3);
+    }}
+
+    .status-rejected {{
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 2px solid rgba(239, 68, 68, 0.3);
+    }}
+
+    .status-cancelled {{
+        background: rgba(156, 163, 175, 0.15);
+        color: #9ca3af;
+        border: 2px solid rgba(156, 163, 175, 0.3);
+    }}
+    
+    /* Buttons */
     .stButton > button {{
         background: linear-gradient(135deg, {SECONDARY_COLOR} 0%, {PRIMARY_COLOR} 100%);
         color: white;
         border: none;
         padding: 0.75rem 1.5rem;
-        border-radius: 10px;
+        border-radius: 12px;
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
@@ -672,49 +345,14 @@ st.markdown(f"""
         box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4); 
     }}
     
-    .stDownloadButton > button {{
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
-        color: #1f2937 !important;
-    }}
-    
     /* Typography */
     h1, h2, h3, h4, h5, h6 {{ 
         color: #f9fafb !important; 
         font-weight: 700 !important; 
     }}
     
-    p, span, div {{ 
-        color: #f9fafb !important; 
-    }}
-    
-    /* DataFrames */
-    .dataframe {{
-        background: #1e293b !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-    }}
-    
-    .dataframe thead tr th {{
-        background: linear-gradient(135deg, #334155 0%, #475569 100%) !important;
-        color: #f9fafb !important;
-        font-weight: 600 !important;
-        padding: 1rem !important;
-        border-bottom: 2px solid {PRIMARY_COLOR} !important;
-    }}
-    
-    .dataframe tbody tr {{ 
-        border-bottom: 1px solid #2d3748 !important; 
-        background: #1e293b !important; 
-    }}
-    
-    .dataframe tbody tr:hover {{ 
-        background: #2d3748 !important; 
-    }}
-    
-    .dataframe tbody tr td {{ 
-        padding: 1rem !important; 
-        color: #f9fafb !important; 
+    p, span, div, label {{ 
+        color: #e5e7eb !important; 
     }}
     
     /* Badges */
@@ -740,49 +378,23 @@ st.markdown(f"""
         margin-bottom: 1rem;
     }}
     
-    /* Status Badges - New Workflow */
-    .status-badge {{
-        padding: 0.375rem 0.875rem;
-        border-radius: 20px;
+    /* Info boxes */
+    .info-row {{
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #334155;
+    }}
+    
+    .info-label {{
+        color: #94a3b8;
         font-weight: 600;
-        font-size: 0.8rem;
-        display: inline-block;
+        font-size: 0.85rem;
     }}
-
-    .status-inquiry {{
-        background: rgba(147, 197, 253, 0.2);
-        color: #60a5fa;
-        border: 1px solid rgba(147, 197, 253, 0.3);
-    }}
-
-    .status-requested {{
-        background: rgba(251, 191, 36, 0.2);
-        color: #fbbf24;
-        border: 1px solid rgba(251, 191, 36, 0.3);
-    }}
-
-    .status-confirmed {{
-        background: rgba(251, 146, 60, 0.2);
-        color: #fb923c;
-        border: 1px solid rgba(251, 146, 60, 0.3);
-    }}
-
-    .status-booked {{
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
-    }}
-
-    .status-rejected {{
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }}
-
-    .status-cancelled {{
-        background: rgba(156, 163, 175, 0.2);
-        color: #9ca3af;
-        border: 1px solid rgba(156, 163, 175, 0.3);
+    
+    .info-value {{
+        color: #f9fafb;
+        font-weight: 500;
     }}
     
     /* Hide Streamlit branding */
@@ -792,8 +404,159 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
+
 # ========================================
-# LOAD BOOKINGS (FILTERED BY CUSTOMER)
+# PASSWORD CHANGE SCREEN
+# ========================================
+if st.session_state.show_password_change:
+    st.markdown("""
+        <style>
+        .password-container {
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .password-title {
+            color: #f9fafb;
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .password-subtitle {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+        <div class="password-container">
+            <div class="password-title">🔐 Set Your Password</div>
+            <div class="password-subtitle">First-time setup - create your secure password</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("password_setup_form"):
+        st.info(f"👋 Welcome, **{st.session_state.full_name}**! Please create a secure password for your account.")
+        
+        new_password = st.text_input("New Password", type="password", key="new_pass")
+        confirm_password = st.text_input("Confirm Password", type="password", key="confirm_pass")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            submit = st.form_submit_button("✅ Set Password", use_container_width=True)
+        with col2:
+            cancel = st.form_submit_button("Cancel", use_container_width=True)
+        
+        if cancel:
+            logout()
+            st.rerun()
+        
+        if submit:
+            if not new_password or not confirm_password:
+                st.error("❌ Please fill in both password fields")
+            elif new_password != confirm_password:
+                st.error("❌ Passwords do not match")
+            elif len(new_password) < 8:
+                st.error("❌ Password must be at least 8 characters")
+            else:
+                if set_permanent_password(st.session_state.user_id, new_password):
+                    update_last_login(st.session_state.user_id)
+                    st.session_state.show_password_change = False
+                    st.session_state.must_change_password = False
+                    st.success("✅ Password set successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Error setting password. Please try again.")
+    
+    st.stop()
+
+
+# ========================================
+# LOGIN SCREEN
+# ========================================
+if not st.session_state.authenticated:
+    st.markdown("""
+        <style>
+        .login-container {
+            max-width: 450px;
+            margin: 100px auto;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .login-title {
+            color: #f9fafb;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .login-subtitle {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+        <div class="login-container">
+            <div class="login-title">🏌️ TeeMail Dashboard</div>
+            <div class="login-subtitle">Booking Management System</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("login_form"):
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        submit = st.form_submit_button("🔐 Login", use_container_width=True)
+        
+        if submit:
+            if username and password:
+                success, customer_id, full_name, must_change, user_id = authenticate_user(username, password)
+                
+                if success:
+                    st.session_state.authenticated = True
+                    st.session_state.customer_id = customer_id
+                    st.session_state.username = username
+                    st.session_state.full_name = full_name
+                    st.session_state.user_id = user_id
+                    
+                    if must_change:
+                        st.session_state.must_change_password = True
+                        st.session_state.show_password_change = True
+                        st.success("✅ Please set your password...")
+                        st.rerun()
+                    else:
+                        update_last_login(user_id)
+                        st.success("✅ Login successful!")
+                        st.rerun()
+                else:
+                    st.error("❌ Invalid username or password")
+            else:
+                st.error("❌ Please enter username and password")
+    
+    st.markdown("""
+        <div style='text-align: center; color: #6b7280; font-size: 0.85rem; margin-top: 2rem;'>
+            <p>First time? Use your temporary password</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.stop()
+
+
+# ========================================
+# LOAD BOOKINGS
 # ========================================
 @st.cache_data(ttl=10)
 def load_bookings_from_db(club_filter):
@@ -802,9 +565,8 @@ def load_bookings_from_db(club_filter):
         conn = get_db_connection()
         cursor = conn.cursor(row_factory=dict_row)
         
-        # Query bookings filtered by club
         cursor.execute("""
-            SELECT
+            SELECT 
                 id,
                 booking_id,
                 guest_email,
@@ -819,16 +581,7 @@ def load_bookings_from_db(club_filter):
                 customer_confirmed_at,
                 updated_at,
                 updated_by,
-                created_at,
-                hotel_checkin,
-                hotel_checkout,
-                hotel_nights,
-                hotel_rooms,
-                hotel_cost,
-                lodging_intent,
-                golf_dates,
-                golf_courses,
-                selected_tee_times
+                created_at
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
@@ -841,941 +594,294 @@ def load_bookings_from_db(club_filter):
         if not bookings:
             return pd.DataFrame(), 'postgresql'
         
-        # Convert to DataFrame
         df = pd.DataFrame(bookings)
         
         # Convert timestamp columns
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+        for col in ['timestamp', 'customer_confirmed_at', 'updated_at', 'created_at']:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
         
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
         
-        if 'customer_confirmed_at' in df.columns:
-            df['customer_confirmed_at'] = pd.to_datetime(df['customer_confirmed_at'], errors='coerce')
-        
-        if 'updated_at' in df.columns:
-            df['updated_at'] = pd.to_datetime(df['updated_at'], errors='coerce')
-        
-        if 'created_at' in df.columns:
-            df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
-        
-        # Ensure tee_time column exists
         if 'tee_time' not in df.columns:
-            df['tee_time'] = None
-        
-        # Ensure booking_id exists (use id as fallback)
-        if 'booking_id' not in df.columns:
-            df['booking_id'] = df['id'].astype(str)
-        
-        # Ensure numeric columns
-        df['total'] = pd.to_numeric(df['total'], errors='coerce').fillna(0)
-        df['players'] = pd.to_numeric(df['players'], errors='coerce').fillna(0).astype(int)
+            df['tee_time'] = 'TBD'
         
         return df, 'postgresql'
-        
     except Exception as e:
-        st.error(f"❌ Database error loading bookings: {e}")
+        st.error(f"❌ Database error: {e}")
         return pd.DataFrame(), 'error'
 
-def update_booking_status(booking_id, status, note=None, updated_by=None):
-    """Update booking status directly in PostgreSQL database"""
+
+def update_booking_status(booking_id: str, new_status: str, updated_by: str):
+    """Update booking status in database"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Build update query
-        if note and updated_by:
-            cursor.execute("""
-                UPDATE bookings 
-                SET status = %s,
-                    note = %s,
-                    updated_at = CURRENT_TIMESTAMP,
-                    updated_by = %s
-                WHERE booking_id = %s
-            """, (status, note, updated_by, booking_id))
-        elif updated_by:
-            cursor.execute("""
-                UPDATE bookings 
-                SET status = %s,
-                    updated_at = CURRENT_TIMESTAMP,
-                    updated_by = %s
-                WHERE booking_id = %s
-            """, (status, updated_by, booking_id))
-        elif note:
-            cursor.execute("""
-                UPDATE bookings 
-                SET status = %s,
-                    note = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE booking_id = %s
-            """, (status, note, booking_id))
-        else:
-            cursor.execute("""
-                UPDATE bookings 
-                SET status = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE booking_id = %s
-            """, (status, booking_id))
+        cursor.execute("""
+            UPDATE bookings
+            SET status = %s,
+                updated_at = NOW(),
+                updated_by = %s
+            WHERE booking_id = %s;
+        """, (new_status, updated_by, booking_id))
         
-        rows_updated = cursor.rowcount
         conn.commit()
         cursor.close()
         conn.close()
-        
-        if rows_updated > 0:
-            return True
-        else:
-            st.error(f"❌ Booking {booking_id} not found in database")
-            return False
-            
-    except Exception as e:
-        st.error(f"❌ Database error updating booking: {str(e)}")
-        return False
-
-def send_confirmation_email(booking_data, status):
-    """Send confirmation email to guest"""
-    try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"Booking {status}: {CLUB_NAME}"
-        msg['From'] = FROM_EMAIL
-        msg['To'] = booking_data['guest_email']
-        
-        if status == "Confirmed":
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                    <h1 style="color: white; margin: 0;">🏌️ Booking Confirmed!</h1>
-                </div>
-                <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-                    <p style="font-size: 18px; color: #1f2937;"><strong>Great news!</strong> Your tee time has been confirmed.</p>
-                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-                        <h3 style="color: #1f2937; margin-top: 0;">Booking Details</h3>
-                        <p><strong>Date:</strong> {booking_data['date']}</p>
-                        <p><strong>Players:</strong> {booking_data['players']}</p>
-                        <p><strong>Total:</strong> €{booking_data['total']:,.2f}</p>
-                    </div>
-                    <p>We look forward to welcoming you to {CLUB_NAME}!</p>
-                    <p style="color: #6b7280; font-size: 0.875rem; margin-top: 2rem;">Powered by TeeMail</p>
-                </div>
-            </body>
-            </html>
-            """
-        else:
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                    <h1 style="color: white; margin: 0;">Booking Update</h1>
-                </div>
-                <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-                    <p style="font-size: 18px; color: #1f2937;">Your booking status: <strong>{status}</strong></p>
-                    <p>Questions? Contact us at {FROM_EMAIL}</p>
-                    <p style="color: #6b7280; font-size: 0.875rem; margin-top: 2rem;">Powered by TeeMail</p>
-                </div>
-            </body>
-            </html>
-            """
-        
-        msg.attach(MIMEText(html, 'html'))
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
         return True
     except Exception as e:
-        st.error(f"Failed to send email: {str(e)}")
+        st.error(f"Error updating status: {e}")
         return False
 
-def generate_excel_report(df, report_name="Booking_Report"):
-    """Generate Excel report with multiple sheets"""
-    output = BytesIO()
-    
-    try:
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Prepare export dataframe
-            df_export = df.copy()
-            
-            # Format datetime columns
-            if 'timestamp' in df_export.columns:
-                df_export['timestamp'] = df_export['timestamp'].apply(
-                    lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notnull(x) else ''
-                )
-            
-            if 'date' in df_export.columns:
-                df_export['date'] = df_export['date'].apply(
-                    lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else ''
-                )
-            
-            # Format confirmed_at if exists
-            if 'customer_confirmed_at' in df_export.columns:
-                df_export['customer_confirmed_at'] = df_export['customer_confirmed_at'].apply(
-                    lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notnull(x) and hasattr(x, 'strftime') else (str(x) if pd.notnull(x) else '')
-                )
-            
-            # Write bookings sheet
-            df_export.to_excel(writer, sheet_name='Bookings', index=False)
-            
-            # Create summary sheet
-            summary_data = {
-                'Metric': [
-                    'Total Bookings',
-                    'Inquiry',
-                    'Requested',
-                    'Confirmed',
-                    'Booked',
-                    'Rejected',
-                    'Cancelled',
-                    'Total Revenue (Booked)',
-                    'Potential Revenue (In Progress)', 
-                    'Average Booking Value', 
-                    'Total Players'
-                ],
-                'Value': [
-                    len(df),
-                    len(df[df['status'] == 'Inquiry']),
-                    len(df[df['status'] == 'Requested']),
-                    len(df[df['status'] == 'Confirmed']),
-                    len(df[df['status'] == 'Booked']),
-                    len(df[df['status'] == 'Rejected']),
-                    len(df[df['status'] == 'Cancelled']),
-                    f"€{df[df['status'] == 'Booked']['total'].sum():,.2f}",
-                    f"€{df[df['status'].isin(['Inquiry', 'Requested', 'Confirmed'])]['total'].sum():,.2f}",
-                    f"€{df['total'].mean():,.2f}",
-                    int(df['players'].sum())
-                ]
-            }
-            
-            summary_df = pd.DataFrame(summary_data)
-            summary_df.to_excel(writer, sheet_name='Summary', index=False)
-            
-            # Make sure at least one sheet is visible
-            workbook = writer.book
-            if workbook.sheetnames:
-                workbook.active = 0  # Set first sheet as active
-        
-        output.seek(0)
-        return output
-        
-    except Exception as e:
-        st.error(f"Error generating Excel report: {e}")
-        # Return empty BytesIO on error
-        output = BytesIO()
-        return output
-
-def generate_csv_report(df):
-    """Generate CSV report"""
-    df_export = df.copy()
-    
-    if 'timestamp' in df_export.columns:
-        df_export['timestamp'] = df_export['timestamp'].apply(
-            lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notnull(x) else ''
-        )
-    
-    if 'date' in df_export.columns:
-        df_export['date'] = df_export['date'].apply(
-            lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else ''
-        )
-    
-    if 'customer_confirmed_at' in df_export.columns:
-        df_export['customer_confirmed_at'] = df_export['customer_confirmed_at'].apply(
-            lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notnull(x) and hasattr(x, 'strftime') else (str(x) if pd.notnull(x) else '')
-        )
-    
-    return df_export.to_csv(index=False).encode('utf-8')
 
 # ========================================
 # MAIN DASHBOARD
 # ========================================
-df, storage_type = load_bookings_from_db(CLUB_FILTER)
-
-st.markdown(f"""
-    <div class="dashboard-header">
-        <h1 class="dashboard-title">🏌️ {CLUB_NAME}</h1>
-        <p class="dashboard-subtitle">Intelligent Booking Management • Powered by TeeMail</p>
-    </div>
-""", unsafe_allow_html=True)
-
-# ========================================
-# APPLY DATE AND STATUS FILTERS BEFORE SIDEBAR
-# ========================================
-# Initialize session state for dates if not exists
-if 'filter_start_date' not in st.session_state:
-    st.session_state.filter_start_date = datetime.now().date()
-if 'filter_end_date' not in st.session_state:
-    st.session_state.filter_end_date = datetime.now().date() + timedelta(days=30)
-
-# Apply filters early so both sidebar and main use same filtered data
-if not df.empty:
-    # Get available statuses from current data
-    available_statuses = sorted(df['status'].unique())
-    
-    # Initialize or validate status filter
-    if 'status_filter' not in st.session_state:
-        st.session_state.status_filter = available_statuses
-    else:
-        # Clean invalid statuses and ensure at least one exists
-        valid_filters = [s for s in st.session_state.status_filter if s in available_statuses]
-        st.session_state.status_filter = valid_filters if valid_filters else available_statuses
-    
-    # Apply filters
-    df_filtered = df[
-        (df['status'].isin(st.session_state.status_filter)) &
-        (df['date'].dt.date >= st.session_state.filter_start_date) &
-        (df['date'].dt.date <= st.session_state.filter_end_date)
-    ]
-else:
-    df_filtered = df
 
 # Sidebar
 with st.sidebar:
+    st.markdown(f"""
+        <div style='text-align: center; padding: 1rem;'>
+            <h2 style='color: {PRIMARY_COLOR}; margin: 0;'>🏌️ TeeMail</h2>
+            <p style='color: #94a3b8; font-size: 0.9rem; margin-top: 0.5rem;'>Booking Dashboard</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown(f"<div class='user-badge'>👤 {st.session_state.full_name}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='club-badge'>🏌️ {CLUB_NAME}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='club-badge'>🏌️ {st.session_state.customer_id.title()}</div>", unsafe_allow_html=True)
     
     st.markdown("---")
     
     if st.button("🚪 Logout", use_container_width=True):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        logout()
         st.rerun()
     
     st.markdown("---")
-    st.markdown("### 🎯 Quick Stats")
+    
+    # Filters
+    st.subheader("📊 Filters")
+    
+    status_filter = st.multiselect(
+        "Status",
+        ["Inquiry", "Requested", "Confirmed", "Booked", "Rejected", "Cancelled", "Pending"],
+        default=["Inquiry", "Requested", "Confirmed", "Booked", "Pending"]
+    )
+    
+    date_range = st.date_input(
+        "Date Range",
+        value=(datetime.now().date(), datetime.now().date() + timedelta(days=30))
+    )
 
-    if not df_filtered.empty:
-        st.metric("Total Bookings", f"{len(df_filtered):,}")
-        st.metric("Inquiry", f"{len(df_filtered[df_filtered['status'] == 'Inquiry']):,}")
-        st.metric("Requested", f"{len(df_filtered[df_filtered['status'] == 'Requested']):,}")
-        st.metric("Confirmed", f"{len(df_filtered[df_filtered['status'] == 'Confirmed']):,}")
-        st.metric("Booked", f"{len(df_filtered[df_filtered['status'] == 'Booked']):,}")
-    
-    st.markdown("---")
-    st.markdown("### 🔍 Filters")
-    
-    if not df.empty:
-        date_col1, date_col2 = st.columns(2)
-        with date_col1:
-            start_date = st.date_input(
-                "From", 
-                value=st.session_state.filter_start_date,
-                key="start_date_input"
-            )
-            
-            if start_date != st.session_state.filter_start_date:
-                st.session_state.filter_start_date = start_date
-                if st.session_state.filter_end_date < start_date:
-                    st.session_state.filter_end_date = start_date + timedelta(days=30)
-                st.rerun()
+# Main content
+st.title("📧 Booking Requests Dashboard")
+
+# Load bookings
+df, source = load_bookings_from_db(st.session_state.customer_id)
+
+if df.empty:
+    st.info("📭 No bookings found")
+    st.stop()
+
+# Apply filters
+filtered_df = df.copy()
+if status_filter:
+    filtered_df = filtered_df[filtered_df['status'].isin(status_filter)]
+
+if len(date_range) == 2:
+    start_date, end_date = date_range
+    filtered_df = filtered_df[
+        (filtered_df['date'].dt.date >= start_date) & 
+        (filtered_df['date'].dt.date <= end_date)
+    ]
+
+# Metrics
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    inquiry_count = len(filtered_df[filtered_df['status'].isin(['Inquiry', 'Pending'])])
+    st.markdown(f"""
+        <div class='metric-card'>
+            <div style='font-size: 2rem;'>🔵</div>
+            <div style='font-size: 1.5rem; font-weight: 700; color: #60a5fa;'>{inquiry_count}</div>
+            <div style='color: #94a3b8; font-size: 0.9rem;'>New Inquiries</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    requested_count = len(filtered_df[filtered_df['status'] == 'Requested'])
+    st.markdown(f"""
+        <div class='metric-card'>
+            <div style='font-size: 2rem;'>🟡</div>
+            <div style='font-size: 1.5rem; font-weight: 700; color: #fbbf24;'>{requested_count}</div>
+            <div style='color: #94a3b8; font-size: 0.9rem;'>Requested</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    confirmed_count = len(filtered_df[filtered_df['status'] == 'Confirmed'])
+    st.markdown(f"""
+        <div class='metric-card'>
+            <div style='font-size: 2rem;'>🟠</div>
+            <div style='font-size: 1.5rem; font-weight: 700; color: #fb923c;'>{confirmed_count}</div>
+            <div style='color: #94a3b8; font-size: 0.9rem;'>Confirmed</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    booked_count = len(filtered_df[filtered_df['status'] == 'Booked'])
+    st.markdown(f"""
+        <div class='metric-card'>
+            <div style='font-size: 2rem;'>✅</div>
+            <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>{booked_count}</div>
+            <div style='color: #94a3b8; font-size: 0.9rem;'>Booked</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
+
+# Booking cards
+st.subheader(f"📋 {len(filtered_df)} Booking Requests")
+
+for idx, booking in filtered_df.iterrows():
+    with st.container():
+        # Status timeline with icon
+        status_icon = get_status_icon(booking['status'])
+        status_class = get_status_color(booking['status'])
+        
+        st.markdown(f"""
+            <div class='booking-card'>
+                <div class='status-timeline'>
+                    <span class='status-icon'>{status_icon}</span>
+                    <span class='status-badge {status_class}'>{booking['status']}</span>
+                </div>
                 
-        with date_col2:
-            end_date = st.date_input(
-                "To", 
-                value=st.session_state.filter_end_date,
-                min_value=start_date,
-                key="end_date_input"
-            )
+                <div style='display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;'>
+                    <div>
+                        <h3 style='margin: 0; color: #10b981;'>{booking['booking_id']}</h3>
+                        <p style='color: #94a3b8; margin: 0.25rem 0 0 0; font-size: 0.9rem;'>{booking['guest_email']}</p>
+                    </div>
+                    <div style='text-align: right;'>
+                        <div style='color: #94a3b8; font-size: 0.85rem;'>Received</div>
+                        <div style='color: #f9fafb; font-weight: 600;'>{booking['timestamp'].strftime('%b %d, %Y %I:%M %p')}</div>
+                    </div>
+                </div>
+                
+                <div class='info-row'>
+                    <span class='info-label'>📅 Tee Time Date</span>
+                    <span class='info-value'>{booking['date'].strftime('%A, %B %d, %Y')}</span>
+                </div>
+                
+                <div class='info-row'>
+                    <span class='info-label'>⏰ Time</span>
+                    <span class='info-value'>{booking.get('tee_time', 'TBD')}</span>
+                </div>
+                
+                <div class='info-row'>
+                    <span class='info-label'>👥 Players</span>
+                    <span class='info-value'>{booking['players']}</span>
+                </div>
+                
+                <div class='info-row' style='border-bottom: none;'>
+                    <span class='info-label'>💰 Total</span>
+                    <span class='info-value' style='color: #10b981; font-weight: 700; font-size: 1.1rem;'>${booking['total']:,.2f}</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Expandable section for details
+        with st.expander("📄 View Full Details", expanded=False):
+            col1, col2 = st.columns([2, 1])
             
-            if end_date != st.session_state.filter_end_date:
-                st.session_state.filter_end_date = end_date
-                st.rerun()
+            with col1:
+                # Email content section
+                if booking.get('note'):
+                    st.markdown(f"""
+                        <div class='email-section'>
+                            <div class='email-header'>
+                                📧 Original Email Request
+                            </div>
+                            <div class='email-content'>{booking['note']}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Additional info
+                if booking.get('updated_by'):
+                    st.markdown(f"""
+                        <div style='margin-top: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;'>
+                            <div style='color: #94a3b8; font-size: 0.85rem;'>Last Updated</div>
+                            <div style='color: #f9fafb;'>{booking['updated_at'].strftime('%b %d, %Y %I:%M %p')} by {booking['updated_by']}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("#### ⚡ Quick Actions")
+                
+                # Status update buttons
+                current_status = booking['status']
+                
+                if current_status in ['Inquiry', 'Pending']:
+                    if st.button("🟡 Mark as Requested", key=f"req_{booking['booking_id']}", use_container_width=True):
+                        if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
+                            st.success("✅ Status updated to Requested")
+                            st.cache_data.clear()
+                            st.rerun()
+                
+                if current_status == 'Requested':
+                    if st.button("🟠 Mark as Confirmed", key=f"conf_{booking['booking_id']}", use_container_width=True):
+                        if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                            st.success("✅ Status updated to Confirmed")
+                            st.cache_data.clear()
+                            st.rerun()
+                
+                if current_status == 'Confirmed':
+                    if st.button("✅ Mark as Booked", key=f"book_{booking['booking_id']}", use_container_width=True):
+                        if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
+                            st.success("✅ Status updated to Booked")
+                            st.cache_data.clear()
+                            st.rerun()
+                
+                # Reject/Cancel options
+                if current_status not in ['Rejected', 'Cancelled', 'Booked']:
+                    if st.button("❌ Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
+                        if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                            st.warning("Booking rejected")
+                            st.cache_data.clear()
+                            st.rerun()
         
-        # Status filter with dynamic validation
-        available_statuses = sorted(df['status'].unique())
+        st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
+
+# Export options
+st.markdown("---")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("📊 Export to Excel", use_container_width=True):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='Bookings')
         
-        status_filter = st.multiselect(
-            "Status", 
-            options=available_statuses,
-            default=st.session_state.status_filter,
-            key="status_multiselect"
+        st.download_button(
+            label="⬇️ Download Excel",
+            data=output.getvalue(),
+            file_name=f"bookings_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
-        
-        if status_filter != st.session_state.status_filter:
-            st.session_state.status_filter = status_filter if status_filter else available_statuses
-            st.rerun()
-    
-    st.markdown("---")
+
+with col2:
+    if st.button("📄 Export to CSV", use_container_width=True):
+        csv = filtered_df.to_csv(index=False)
+        st.download_button(
+            label="⬇️ Download CSV",
+            data=csv,
+            file_name=f"bookings_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+with col3:
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-
-# Load bookings
-if df.empty:
-    st.info(f"📭 No bookings found for {CLUB_NAME}")
-    st.markdown(f"""
-        **Booking email:** `{CUSTOMER_ID}@booking.teemail.io`
-        
-        Bookings will appear here when guests email your booking address.
-    """)
-    st.stop()
-
-# Connection status
-if storage_type == "postgresql":
-    st.success(f"✅ Connected to PostgreSQL Database")
-elif storage_type == "error":
-    st.error(f"❌ Cannot connect to PostgreSQL Database")
-
-# Tabs
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📋 Manage Bookings", "📊 Reports & Export"])
-
-with tab1:
-    if not df_filtered.empty:
-        col1, col2, col3, col4, col5 = st.columns(5)
-
-        total_bookings = len(df_filtered)
-        inquiry_count = len(df_filtered[df_filtered['status'] == 'Inquiry'])
-        requested_count = len(df_filtered[df_filtered['status'] == 'Requested'])
-        confirmed_count = len(df_filtered[df_filtered['status'] == 'Confirmed'])
-        booked_count = len(df_filtered[df_filtered['status'] == 'Booked'])
-        total_revenue = df_filtered[df_filtered['status'] == 'Booked']['total'].sum()
-        potential_revenue = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested', 'Confirmed'])]['total'].sum()
-
-        with col1:
-            st.metric("Total", f"{total_bookings:,}")
-        with col2:
-            st.metric("Inquiry", f"{inquiry_count:,}")
-        with col3:
-            st.metric("Requested", f"{requested_count:,}")
-        with col4:
-            st.metric("Confirmed", f"{confirmed_count:,}")
-        with col5:
-            st.metric("Booked", f"{booked_count:,}", f"€{total_revenue:,.0f}")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("#### 📊 Status Distribution")
-            status_counts = df_filtered['status'].value_counts()
-            fig = go.Figure(data=[go.Pie(labels=status_counts.index, values=status_counts.values, hole=0.5)])
-            fig.update_layout(
-                height=350, 
-                paper_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#f9fafb'),
-                showlegend=True
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.markdown("#### 📈 Booking Timeline")
-            timeline = df_filtered.groupby(df_filtered['timestamp'].dt.date).size().reset_index()
-            timeline.columns = ['Date', 'Count']
-            fig = go.Figure(data=[go.Scatter(
-                x=timeline['Date'], 
-                y=timeline['Count'], 
-                mode='lines+markers', 
-                line=dict(color=PRIMARY_COLOR, width=3),
-                marker=dict(size=8)
-            )])
-            fig.update_layout(
-                height=350, 
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#f9fafb'),
-                xaxis=dict(gridcolor='#334155'),
-                yaxis=dict(gridcolor='#334155')
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("📭 No bookings match current filters")
-
-with tab2:
-    st.markdown("### 📋 Booking Management")
-
-    if not df_filtered.empty:
-        # Show Inquiry and Requested bookings (awaiting action)
-        active_bookings = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested'])]
-
-        if len(active_bookings) > 0:
-            st.markdown(f"#### ⚡ {len(active_bookings)} Active Bookings (Inquiry + Requested)")
-            
-            for idx, booking in active_bookings.iterrows():
-                booking_id = booking.get('booking_id', booking.get('id', f"{booking['timestamp']}_{booking['guest_email']}"))
-                tee_time_display = booking.get('tee_time', 'Not specified')
-
-                # Status badge
-                status = booking['status']
-                status_icon = "📧" if status == "Inquiry" else "📬"
-                status_badge_class = f"status-{status.lower()}"
-
-                # Hotel info summary
-                hotel_summary = ""
-                if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
-                    hotel_summary = f"🏨 {booking['hotel_nights']}N ({booking.get('hotel_checkin', '')} - {booking.get('hotel_checkout', '')})"
-                else:
-                    hotel_summary = "🏨 No lodging"
-
-                with st.expander(f"{status_icon} **{status}** • {booking['guest_email']} • 🗓️ {booking['date'].strftime('%Y-%m-%d')} • 👥 {booking['players']}p • {hotel_summary} • 💰 €{booking['total']:,.2f}"):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        # Build hotel info display
-                        hotel_display = ""
-                        if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
-                            hotel_display = f"""
-                        **🏨 HOTEL INFORMATION:**
-                        **Check-in:** {booking['hotel_checkin']}
-                        **Check-out:** {booking['hotel_checkout']}
-                        **Nights:** {booking.get('hotel_nights', 'N/A')}
-                        **Rooms:** {booking.get('hotel_rooms', 'N/A')}
-                        **Hotel Cost:** €{booking.get('hotel_cost', 0):,.2f}
-                        **Lodging Intent:** {booking.get('lodging_intent', 'N/A')}
-                        """
-                        else:
-                            hotel_display = "**🏨 Hotel:** Golf only (no lodging)"
-
-                        # Build golf info display
-                        golf_dates_display = booking.get('golf_dates', [])
-                        if isinstance(golf_dates_display, list) and golf_dates_display:
-                            golf_dates_str = ", ".join(golf_dates_display)
-                        else:
-                            golf_dates_str = booking['date'].strftime('%Y-%m-%d') if booking.get('date') else 'N/A'
-
-                        st.markdown(f"""
-                        **📧 Guest Email:** {booking['guest_email']}
-                        **🔖 Booking Ref:** `{booking_id}`
-                        **🚦 Status:** <span class="{status_badge_class}">{status}</span>
-
-                        ---
-
-                        **⛳ GOLF INFORMATION:**
-                        **Golf Dates:** {golf_dates_str}
-                        **Courses:** {booking.get('golf_courses', 'Any')}
-                        **Tee Time:** {tee_time_display}
-                        **Players:** {booking['players']}
-
-                        ---
-
-                        {hotel_display}
-
-                        ---
-
-                        **💰 Total:** €{booking['total']:,.2f}
-                        **📝 Note:** {booking.get('note', 'N/A')}
-                        """, unsafe_allow_html=True)
-                        
-                        # Notes section
-                        st.markdown("---")
-                        st.markdown("#### 📝 Notes")
-                        
-                        # Display existing notes
-                        existing_notes = get_booking_notes(booking_id)
-                        if existing_notes:
-                            for note in existing_notes:
-                                note_time = note['created_at'].strftime('%Y-%m-%d %H:%M') if note['created_at'] else 'Unknown'
-                                note_type = note.get('note_type', 'general')
-                                
-                                # Determine badge color based on note type
-                                badge_colors = {
-                                    'general': '#818cf8',
-                                    'follow_up': '#fbbf24',
-                                    'customer_request': '#10b981',
-                                    'internal': '#94a3b8'
-                                }
-                                badge_color = badge_colors.get(note_type, '#94a3b8')
-                                
-                                st.markdown(f"""
-                                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1rem; margin: 0.75rem 0; transition: all 0.2s;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                        <div>
-                                            <span style="color: #94a3b8; font-size: 0.8rem; font-weight: 500;">👤 {note['created_by']}</span>
-                                            <span style="background: rgba({int(badge_color[1:3], 16)}, {int(badge_color[3:5], 16)}, {int(badge_color[5:7], 16)}, 0.2); color: {badge_color}; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">{note_type}</span>
-                                        </div>
-                                        <span style="color: #94a3b8; font-size: 0.75rem;">🕐 {note_time}</span>
-                                    </div>
-                                    <div style="color: #f9fafb; font-size: 0.9rem; line-height: 1.5;">{note['note']}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                            <div style="color: #94a3b8; font-style: italic; padding: 1rem; text-align: center; background: #1e293b; border-radius: 8px; border: 1px dashed #334155;">
-                                No notes yet
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        # Add new note
-                        st.markdown("""
-                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155;">
-                            <p style="color: #94a3b8; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">➕ Add New Note</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        with st.form(f"add_note_{booking_id}"):
-                            new_note = st.text_area("Note", placeholder="Enter internal note about this booking...", key=f"note_{booking_id}", height=80, label_visibility="collapsed")
-                            note_type = st.selectbox("Type", ["general", "follow_up", "customer_request", "internal"], key=f"note_type_{booking_id}")
-                            
-                            if st.form_submit_button("💾 Add Note", use_container_width=True):
-                                if new_note:
-                                    if add_booking_note(booking_id, new_note, st.session_state.username, note_type):
-                                        st.success("✅ Note added!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                else:
-                                    st.error("❌ Please enter a note")
-                    
-                    with col2:
-                        st.markdown(f"""
-                        <div class="status-badge {status_badge_class}" style="margin-bottom: 1rem; display: block; text-align: center;">
-                            {status}
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Dynamic action options based on current status
-                        if status == "Inquiry":
-                            action_options = ["No Change", "📬 → Requested", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
-                        elif status == "Requested":
-                            action_options = ["No Change", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
-                        else:  # Catch-all
-                            action_options = ["No Change", "✅ → Confirmed", "🎯 → Booked", "❌ Reject"]
-
-                        action = st.radio("Update Status", action_options, key=f"pending_action_{idx}")
-                        send_email = st.checkbox("Send Email", value=True, key=f"pending_email_{idx}")
-                        
-                        # Delete button with confirmation
-                        st.markdown("---")
-                        delete_confirm = st.checkbox(f"⚠️ Enable Delete", key=f"enable_delete_{idx}")
-                        
-                        if delete_confirm:
-                            if st.button("🗑️ Delete Permanently", key=f"delete_{idx}", type="secondary"):
-                                with st.spinner("Deleting booking..."):
-                                    if delete_booking(booking_id):
-                                        st.success("✅ Booking deleted!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    else:
-                                        st.error("❌ Failed to delete booking")
-                        
-                        st.markdown("---")
-                        
-                        if st.button("💾 Update Status", key=f"pending_update_{idx}", use_container_width=True):
-                            new_status = None
-                            action_msg = ""
-
-                            # Map action to new status
-                            if action == "📬 → Requested":
-                                new_status = "Requested"
-                                action_msg = "moved to Requested"
-                            elif action == "✅ → Confirmed":
-                                new_status = "Confirmed"
-                                action_msg = "confirmed (payment info sent)"
-                            elif action == "🎯 → Booked":
-                                new_status = "Booked"
-                                action_msg = "marked as Booked (payment received)"
-                            elif action == "❌ Reject":
-                                new_status = "Rejected"
-                                action_msg = "rejected"
-
-                            if new_status:
-                                with st.spinner(f"⏳ Updating booking for {booking['guest_email']}..."):
-                                    if update_booking_status(booking_id, new_status, updated_by=st.session_state.username):
-                                        # Add automatic note
-                                        add_booking_note(booking_id, f"Status updated to {new_status} via dashboard", st.session_state.username, 'general')
-
-                                        if send_email and new_status in ['Confirmed', 'Booked', 'Rejected']:
-                                            with st.spinner("📧 Sending email..."):
-                                                booking_data = {
-                                                    'guest_email': booking['guest_email'],
-                                                    'date': booking['date'].strftime('%Y-%m-%d'),
-                                                    'players': booking['players'],
-                                                    'total': booking['total']
-                                                }
-                                                send_confirmation_email(booking_data, new_status)
-
-                                        st.success(f"✅ Booking {action_msg}!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                            else:
-                                st.info("No changes made")
-        
-        st.markdown("---")
-        st.markdown(f"#### ✏️ All Bookings ({len(df_filtered)} records)")
-        
-        search_term = st.text_input("🔍 Search bookings", placeholder="Search by email, date, booking ref, note content, or staff name...", key="search_all")
-        
-        df_searchable = df_filtered.copy()
-        if search_term:
-            # Search in main booking fields
-            mask = df_searchable.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)
-            
-            # Also search in notes if booking_notes table exists
-            matching_booking_ids = []
-            try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT DISTINCT booking_id 
-                    FROM booking_notes 
-                    WHERE note ILIKE %s OR created_by ILIKE %s
-                """, (f'%{search_term}%', f'%{search_term}%'))
-                results = cursor.fetchall()
-                matching_booking_ids = [row[0] for row in results]
-                cursor.close()
-                conn.close()
-            except:
-                pass  # Table might not exist yet
-            
-            # Combine results
-            if matching_booking_ids:
-                notes_mask = df_searchable['booking_id'].isin(matching_booking_ids)
-                mask = mask | notes_mask
-            
-            df_searchable = df_searchable[mask]
-        
-        st.markdown(f"**{len(df_searchable)} bookings shown**")
-        
-        # Create display dataframe with booking ref and tee time
-        display_df = df_searchable[['booking_id', 'timestamp', 'guest_email', 'date', 'tee_time', 'players', 'total', 'status']].copy()
-        display_df.columns = ['Booking Ref', 'Timestamp', 'Guest Email', 'Date', 'Tee Time', 'Players', 'Total (€)', 'Status']
-        display_df['Timestamp'] = display_df['Timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-        display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
-        display_df['Tee Time'] = display_df['Tee Time'].fillna('Not specified')
-        
-        st.dataframe(display_df, use_container_width=True)
-        
-        # Show Confirmed and Booked bookings with details and notes
-        completed_bookings = df_searchable[df_searchable['status'].isin(['Confirmed', 'Booked'])]
-        if len(completed_bookings) > 0:
-            st.markdown("---")
-            st.markdown(f"#### ✅ Confirmed & Booked ({len(completed_bookings)} bookings)")
-            
-            for idx, booking in completed_bookings.iterrows():
-                booking_id = booking.get('booking_id', booking.get('id', 'N/A'))
-                tee_time_display = booking.get('tee_time', 'Not specified')
-                status = booking['status']
-                status_icon = "🎯" if status == "Booked" else "✅"
-                status_badge_class = f"status-{status.lower()}"
-
-                # Hotel info summary
-                hotel_summary = ""
-                if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
-                    hotel_summary = f"🏨 {booking['hotel_nights']}N"
-                else:
-                    hotel_summary = "⛳ Golf Only"
-
-                # Handle confirmed_at for both datetime objects and strings
-                confirmed_at = booking.get('customer_confirmed_at')
-                if pd.notnull(confirmed_at) and confirmed_at != '':
-                    try:
-                        # Convert to datetime if it's a string
-                        if isinstance(confirmed_at, str):
-                            confirmed_at_dt = pd.to_datetime(confirmed_at)
-                            confirmed_at_str = confirmed_at_dt.strftime('%Y-%m-%d %H:%M')
-                        # Use directly if it's already a datetime object
-                        elif hasattr(confirmed_at, 'strftime'):
-                            confirmed_at_str = confirmed_at.strftime('%Y-%m-%d %H:%M')
-                        else:
-                            confirmed_at_str = str(confirmed_at)
-                    except:
-                        # Fallback if parsing fails
-                        confirmed_at_str = str(confirmed_at) if confirmed_at else 'Via dashboard'
-                else:
-                    confirmed_at_str = 'Via dashboard'
-
-                with st.expander(f"{status_icon} **{status}** • {booking['guest_email']} • {booking['date'].strftime('%Y-%m-%d')} • 👥 {booking['players']}p • {hotel_summary} • €{booking['total']:,.2f}"):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        # Build hotel info display
-                        hotel_display = ""
-                        if booking.get('hotel_checkin') and booking.get('hotel_checkout'):
-                            hotel_display = f"""
-                        **🏨 HOTEL INFORMATION:**
-                        **Check-in:** {booking['hotel_checkin']}
-                        **Check-out:** {booking['hotel_checkout']}
-                        **Nights:** {booking.get('hotel_nights', 'N/A')}
-                        **Rooms:** {booking.get('hotel_rooms', 'N/A')}
-                        **Hotel Cost:** €{booking.get('hotel_cost', 0):,.2f}
-                        """
-                        else:
-                            hotel_display = "**🏨 Hotel:** Golf only (no lodging)"
-
-                        # Build golf info display
-                        golf_dates_display = booking.get('golf_dates', [])
-                        if isinstance(golf_dates_display, list) and golf_dates_display:
-                            golf_dates_str = ", ".join(golf_dates_display)
-                        else:
-                            golf_dates_str = booking['date'].strftime('%Y-%m-%d') if booking.get('date') else 'N/A'
-
-                        st.markdown(f"""
-                        **📧 Customer Email:** {booking['guest_email']}
-                        **🔖 Booking Reference:** `{booking_id}`
-                        **🚦 Status:** <span class="{status_badge_class}">{status}</span>
-                        **✅ Confirmed At:** {confirmed_at_str}
-
-                        ---
-
-                        **⛳ GOLF INFORMATION:**
-                        **Golf Dates:** {golf_dates_str}
-                        **Courses:** {booking.get('golf_courses', 'Any')}
-                        **Tee Time:** {tee_time_display}
-                        **Players:** {booking['players']}
-
-                        ---
-
-                        {hotel_display}
-
-                        ---
-
-                        **💰 Total:** €{booking['total']:,.2f}
-                        **📝 Note:** {booking.get('note', 'N/A')}
-                        """, unsafe_allow_html=True)
-                        
-                        # Notes section for confirmed bookings
-                        st.markdown("---")
-                        st.markdown("#### 📝 Booking Notes")
-                        
-                        # Display existing notes
-                        existing_notes = get_booking_notes(booking_id)
-                        if existing_notes:
-                            for note in existing_notes:
-                                note_time = note['created_at'].strftime('%Y-%m-%d %H:%M') if note['created_at'] else 'Unknown'
-                                note_type = note.get('note_type', 'general')
-                                
-                                # Determine badge color based on note type
-                                badge_colors = {
-                                    'general': '#818cf8',
-                                    'follow_up': '#fbbf24',
-                                    'customer_request': '#10b981',
-                                    'internal': '#94a3b8'
-                                }
-                                badge_color = badge_colors.get(note_type, '#94a3b8')
-                                
-                                st.markdown(f"""
-                                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1rem; margin: 0.75rem 0; transition: all 0.2s;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                        <div>
-                                            <span style="color: #94a3b8; font-size: 0.8rem; font-weight: 500;">👤 {note['created_by']}</span>
-                                            <span style="background: rgba({int(badge_color[1:3], 16)}, {int(badge_color[3:5], 16)}, {int(badge_color[5:7], 16)}, 0.2); color: {badge_color}; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">{note_type}</span>
-                                        </div>
-                                        <span style="color: #94a3b8; font-size: 0.75rem;">🕐 {note_time}</span>
-                                    </div>
-                                    <div style="color: #f9fafb; font-size: 0.9rem; line-height: 1.5;">{note['note']}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                            <div style="color: #94a3b8; font-style: italic; padding: 1rem; text-align: center; background: #1e293b; border-radius: 8px; border: 1px dashed #334155;">
-                                No notes for this booking
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        # Add new note to confirmed booking
-                        st.markdown("""
-                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155;">
-                            <p style="color: #94a3b8; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">➕ Add Follow-up Note</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        with st.form(f"add_note_confirmed_{booking_id}"):
-                            new_note = st.text_area("Note", placeholder="Add follow-up note or customer communications...", key=f"note_confirmed_{booking_id}", height=60, label_visibility="collapsed")
-                            
-                            if st.form_submit_button("💾 Add Note", use_container_width=True):
-                                if new_note:
-                                    if add_booking_note(booking_id, new_note, st.session_state.username):
-                                        st.success("✅ Note added!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                else:
-                                    st.error("❌ Please enter a note")
-                    
-                    with col2:
-                        st.markdown(f"""
-                        <div class="status-badge {status_badge_class}" style="margin-bottom: 1rem; display: block; text-align: center;">
-                            {status}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Show who updated it
-                        updated_by = booking.get('updated_by', 'Unknown')
-                        updated_at = booking.get('updated_at')
-                        
-                        if updated_by and updated_by != 'Unknown':
-                            st.info(f"👤 Updated by: **{updated_by}**")
-                        
-                        if updated_at:
-                            try:
-                                if isinstance(updated_at, str):
-                                    updated_dt = pd.to_datetime(updated_at)
-                                    st.caption(f"🕐 {updated_dt.strftime('%Y-%m-%d %H:%M')}")
-                                elif hasattr(updated_at, 'strftime'):
-                                    st.caption(f"🕐 {updated_at.strftime('%Y-%m-%d %H:%M')}")
-                            except:
-                                pass
-    else:
-        st.info("No bookings match current filters")
-
-with tab3:
-    st.markdown("### 📊 Reports & Export")
-    
-    if not df_filtered.empty:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        total_bookings = len(df_filtered)
-        booked_revenue = df_filtered[df_filtered['status'] == 'Booked']['total'].sum()
-        confirmed_revenue = df_filtered[df_filtered['status'] == 'Confirmed']['total'].sum()
-        in_progress_revenue = df_filtered[df_filtered['status'].isin(['Inquiry', 'Requested'])]['total'].sum()
-        avg_booking_value = df_filtered['total'].mean()
-
-        with col1:
-            st.metric("Total Bookings", f"{total_bookings:,}")
-        with col2:
-            st.metric("Booked Revenue", f"€{booked_revenue:,.2f}")
-        with col3:
-            st.metric("Confirmed Revenue", f"€{confirmed_revenue:,.2f}")
-        with col4:
-            st.metric("In Progress Revenue", f"€{in_progress_revenue:,.2f}")
-        
-        st.markdown("---")
-        st.markdown("#### 📥 Export Options")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**📊 Excel Report**")
-            st.markdown("Multi-sheet report with summary and analytics")
-            excel_data = generate_excel_report(df_filtered, f"{CLUB_NAME.replace(' ', '_')}_Report")
-            st.download_button(
-                label="📊 Download Excel",
-                data=excel_data,
-                file_name=f"{CLUB_NAME.replace(' ', '_')}_Bookings_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        
-        with col2:
-            st.markdown("**📄 CSV Export**")
-            st.markdown("Simple CSV for importing elsewhere")
-            csv_data = generate_csv_report(df_filtered)
-            st.download_button(
-                label="📄 Download CSV",
-                data=csv_data,
-                file_name=f"{CLUB_NAME.replace(' ', '_')}_Bookings_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-        
-        st.markdown("---")
-        st.markdown("#### 📈 Revenue Timeline (Booked Only)")
-
-        revenue_timeline = df_filtered[df_filtered['status'] == 'Booked'].groupby(df_filtered['date'].dt.date)['total'].sum().reset_index()
-        revenue_timeline.columns = ['Date', 'Revenue']
-        
-        fig_revenue = go.Figure(data=[go.Bar(
-            x=revenue_timeline['Date'],
-            y=revenue_timeline['Revenue'],
-            marker_color=PRIMARY_COLOR,
-            text=[f"€{x:,.0f}" for x in revenue_timeline['Revenue']],
-            textposition='auto'
-        )])
-        fig_revenue.update_layout(
-            height=300,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#f9fafb'),
-            xaxis=dict(gridcolor='#334155'),
-            yaxis=dict(gridcolor='#334155', title='Revenue (€)')
-        )
-        st.plotly_chart(fig_revenue, use_container_width=True)
-    else:
-        st.info("📭 No bookings available for reporting")
