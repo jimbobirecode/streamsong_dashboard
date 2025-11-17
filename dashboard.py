@@ -929,6 +929,47 @@ def fix_all_tee_times(club_filter):
         return 0, 0
 
 
+def delete_booking(booking_id: str):
+    """Delete a booking from the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            DELETE FROM bookings
+            WHERE booking_id = %s;
+        """, (booking_id,))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting booking: {e}")
+        return False
+
+
+def update_booking_note(booking_id: str, note: str):
+    """Update booking note in database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE bookings
+            SET note = %s, updated_at = NOW()
+            WHERE booking_id = %s;
+        """, (note, booking_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Error updating note: {e}")
+        return False
+
+
 # ========================================
 # MAIN DASHBOARD
 # ========================================
@@ -1214,18 +1255,27 @@ for idx, booking in filtered_df.iterrows():
             with detail_col1:
                 st.markdown("""
                     <div style='background: #0f1419; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 1px solid #1e293b; border-bottom: none; margin-bottom: 0;'>
-                        <div class='data-label' style='margin: 0;'>ORIGINAL REQUEST</div>
+                        <div class='data-label' style='margin: 0;'>BOOKING NOTES</div>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                st.text_area(
-                    label="Email Content",
+
+                # Editable notes text area
+                updated_note = st.text_area(
+                    label="Notes",
                     value=note_content,
                     height=200,
-                    disabled=True,
+                    disabled=False,
                     label_visibility="collapsed",
-                    key=f"email_{booking['booking_id']}"
+                    key=f"note_{booking['booking_id']}"
                 )
+
+                # Save notes button
+                if updated_note != note_content:
+                    if st.button("💾 Save Notes", key=f"save_note_{booking['booking_id']}", use_container_width=True):
+                        if update_booking_note(booking['booking_id'], updated_note):
+                            st.success("Notes saved successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
                 
                 if booking.get('updated_by') and not pd.isna(booking.get('updated_by')):
                     st.markdown(f"""
@@ -1268,6 +1318,33 @@ for idx, booking in filtered_df.iterrows():
                         if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
                             st.warning("Rejected")
                             st.cache_data.clear()
+                            st.rerun()
+
+                # Delete booking button (with confirmation)
+                st.markdown("<div style='margin-top: 1.5rem; border-top: 1px solid #1e293b; padding-top: 1rem;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #dc2626; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;'>Danger Zone</div>", unsafe_allow_html=True)
+
+                # Initialize session state for delete confirmation
+                if f"confirm_delete_{booking['booking_id']}" not in st.session_state:
+                    st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
+
+                if not st.session_state[f"confirm_delete_{booking['booking_id']}"]:
+                    if st.button("🗑️ Delete Booking", key=f"del_{booking['booking_id']}", use_container_width=True, type="secondary"):
+                        st.session_state[f"confirm_delete_{booking['booking_id']}"] = True
+                        st.rerun()
+                else:
+                    st.warning("⚠️ Are you sure? This action cannot be undone.")
+                    col_confirm1, col_confirm2 = st.columns(2)
+                    with col_confirm1:
+                        if st.button("✓ Yes, Delete", key=f"confirm_del_{booking['booking_id']}", use_container_width=True):
+                            if delete_booking(booking['booking_id']):
+                                st.success("Booking deleted successfully!")
+                                st.cache_data.clear()
+                                st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
+                                st.rerun()
+                    with col_confirm2:
+                        if st.button("✕ Cancel", key=f"cancel_del_{booking['booking_id']}", use_container_width=True):
+                            st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
                             st.rerun()
 
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
