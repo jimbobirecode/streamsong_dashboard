@@ -5,7 +5,6 @@ import bcrypt
 import psycopg
 from psycopg.rows import dict_row
 from datetime import datetime, timedelta
-import plotly.graph_objects as go
 from io import BytesIO
 
 # ========================================
@@ -28,14 +27,12 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 def authenticate_user(username: str, password: str):
-    """
-    Authenticate user - handles both temp passwords and set passwords
+    """Authenticate user - handles both temp passwords and set passwords
     Returns (success, customer_id, full_name, must_change_password, user_id)
     """
     try:
         conn = get_db_connection()
         cursor = conn.cursor(row_factory=dict_row)
-
         cursor.execute("""
             SELECT id, password_hash, temp_password, customer_id, full_name,
                    is_active, must_change_password
@@ -127,7 +124,7 @@ def get_status_icon(status: str) -> str:
         'Booked': '✅',
         'Rejected': '❌',
         'Cancelled': '⚫',
-        'Pending': '🟡',  # Legacy fallback
+        'Pending': '🟡',
     }
     return status_icons.get(status, '⚪')
 
@@ -141,7 +138,7 @@ def get_status_color(status: str) -> str:
         'Booked': 'status-booked',
         'Rejected': 'status-rejected',
         'Cancelled': 'status-cancelled',
-        'Pending': 'status-requested',  # Legacy fallback
+        'Pending': 'status-requested',
     }
     return status_map.get(status, 'status-inquiry')
 
@@ -189,126 +186,82 @@ st.set_page_config(
 )
 
 # ========================================
-# STYLING
+# STYLING - ENTERPRISE GRADE
 # ========================================
-PRIMARY_COLOR = "#10b981"
-SECONDARY_COLOR = "#059669"
-DARK_BG = "#0f172a"
-
-st.markdown(f"""
+st.markdown("""
     <style>
-    /* Global Styles - Enterprise Clean */
-    .main {{
+    .main {
         background: #0a0f1e;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
-    }}
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
     
-    /* Sidebar - Minimal & Professional */
-    [data-testid="stSidebar"] {{
+    [data-testid="stSidebar"] {
         background: #0f1419;
         border-right: 1px solid #1e293b;
-    }}
+    }
     
-    /* Metric Cards - Clean & Modern */
-    .metric-card {{
+    .metric-card {
         background: #141b2b;
         padding: 1.75rem;
         border-radius: 12px;
         border: 1px solid #1e293b;
         transition: all 0.2s ease;
-    }}
+    }
     
-    .metric-card:hover {{
+    .metric-card:hover {
         border-color: #2d3748;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }}
+    }
     
-    /* Booking Cards - Enterprise Grade */
-    .booking-card {{
-        background: #141b2b;
-        padding: 0;
-        border-radius: 12px;
-        border: 1px solid #1e293b;
-        margin-bottom: 1rem;
-        overflow: hidden;
-    }}
-    
-    .booking-header {{
-        background: #0f1419;
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid #1e293b;
-    }}
-    
-    .booking-body {{
-        padding: 1.5rem;
-    }}
-    
-    .booking-id {{
+    .booking-id {
         font-size: 1rem;
         font-weight: 600;
         color: #f9fafb;
         margin: 0;
         font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
         letter-spacing: 0.5px;
-    }}
+    }
     
-    .booking-email {{
+    .booking-email {
         color: #64748b;
         font-size: 0.875rem;
         margin: 0.375rem 0 0 0;
-    }}
+    }
     
-    .timestamp {{
+    .timestamp {
         color: #64748b;
         font-size: 0.8125rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         font-weight: 500;
-    }}
+    }
     
-    .timestamp-value {{
+    .timestamp-value {
         color: #94a3b8;
         font-size: 0.875rem;
         font-weight: 600;
         margin-top: 0.25rem;
-    }}
+    }
     
-    /* Email Content - Professional Display */
-    .email-section {{
-        background: #0a0f1e;
-        border: 1px solid #1e293b;
-        border-radius: 8px;
-        padding: 0;
-        margin-top: 1.5rem;
-        overflow: hidden;
-    }}
+    .stTextArea textarea {
+        background: #0a0f1e !important;
+        border: 1px solid #1e293b !important;
+        border-radius: 0 0 8px 8px !important;
+        color: #cbd5e1 !important;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.7 !important;
+        padding: 1rem !important;
+    }
     
-    .email-header {{
-        background: #0f1419;
-        color: #64748b;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        padding: 0.75rem 1rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 1px solid #1e293b;
-    }}
+    .stTextArea textarea:disabled {
+        background: #0a0f1e !important;
+        color: #cbd5e1 !important;
+        opacity: 1 !important;
+        -webkit-text-fill-color: #cbd5e1 !important;
+    }
     
-    .email-content {{
-        background: #0a0f1e;
-        padding: 1rem;
-        color: #cbd5e1;
-        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-        font-size: 0.8125rem;
-        line-height: 1.7;
-        max-height: 400px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }}
-    
-    /* Status Timeline - Minimalist */
-    .status-timeline {{
+    .status-timeline {
         display: inline-flex;
         align-items: center;
         gap: 0.625rem;
@@ -316,15 +269,14 @@ st.markdown(f"""
         padding: 0.5rem 1rem;
         border-radius: 8px;
         border: 1px solid #1e293b;
-    }}
+    }
     
-    .status-icon {{
+    .status-icon {
         font-size: 1.125rem;
         line-height: 1;
-    }}
+    }
     
-    /* Status Badges - Corporate Style */
-    .status-badge {{
+    .status-badge {
         padding: 0.375rem 0.875rem;
         border-radius: 6px;
         font-weight: 600;
@@ -333,46 +285,45 @@ st.markdown(f"""
         align-items: center;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-    }}
+    }
 
-    .status-inquiry {{
+    .status-inquiry {
         background: rgba(59, 130, 246, 0.1);
         color: #60a5fa;
         border: 1px solid rgba(59, 130, 246, 0.2);
-    }}
+    }
 
-    .status-requested {{
+    .status-requested {
         background: rgba(234, 179, 8, 0.1);
         color: #eab308;
         border: 1px solid rgba(234, 179, 8, 0.2);
-    }}
+    }
 
-    .status-confirmed {{
+    .status-confirmed {
         background: rgba(249, 115, 22, 0.1);
         color: #f97316;
         border: 1px solid rgba(249, 115, 22, 0.2);
-    }}
+    }
 
-    .status-booked {{
+    .status-booked {
         background: rgba(16, 185, 129, 0.1);
         color: #10b981;
         border: 1px solid rgba(16, 185, 129, 0.2);
-    }}
+    }
 
-    .status-rejected {{
+    .status-rejected {
         background: rgba(239, 68, 68, 0.1);
         color: #ef4444;
         border: 1px solid rgba(239, 68, 68, 0.2);
-    }}
+    }
 
-    .status-cancelled {{
+    .status-cancelled {
         background: rgba(100, 116, 139, 0.1);
         color: #64748b;
         border: 1px solid rgba(100, 116, 139, 0.2);
-    }}
+    }
     
-    /* Buttons - Enterprise Style */
-    .stButton > button {{
+    .stButton > button {
         background: #10b981;
         color: white;
         border: none;
@@ -383,32 +334,30 @@ st.markdown(f"""
         transition: all 0.2s ease;
         width: 100%;
         letter-spacing: 0.3px;
-    }}
+    }
     
-    .stButton > button:hover {{ 
+    .stButton > button:hover { 
         background: #059669;
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
-    }}
+    }
     
-    /* Typography - Professional */
-    h1 {{ 
+    h1 { 
         color: #f9fafb !important; 
         font-weight: 700 !important;
         font-size: 1.875rem !important;
         letter-spacing: -0.5px !important;
-    }}
+    }
     
-    h2, h3, h4, h5, h6 {{ 
+    h2, h3, h4, h5, h6 { 
         color: #f9fafb !important; 
         font-weight: 600 !important; 
-    }}
+    }
     
-    p, span, div, label {{ 
+    p, span, div, label { 
         color: #cbd5e1 !important; 
-    }}
+    }
     
-    /* Badges - Refined */
-    .user-badge {{
+    .user-badge {
         background: #10b981;
         color: white;
         padding: 0.5rem 1rem;
@@ -418,9 +367,9 @@ st.markdown(f"""
         display: inline-block;
         margin-bottom: 0.5rem;
         letter-spacing: 0.3px;
-    }}
+    }
     
-    .club-badge {{
+    .club-badge {
         background: #eab308;
         color: #0f1419;
         padding: 0.5rem 1rem;
@@ -430,57 +379,52 @@ st.markdown(f"""
         display: inline-block;
         margin-bottom: 1rem;
         letter-spacing: 0.3px;
-    }}
+    }
     
-    /* Data Grid - Enterprise */
-    .data-grid {{
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        padding: 0;
-    }}
-    
-    .data-cell {{
-        padding: 1rem;
-        border-radius: 8px;
-        background: #0f1419;
-        border: 1px solid #1e293b;
-    }}
-    
-    .data-label {{
+    .data-label {
         color: #64748b;
         font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin-bottom: 0.5rem;
-    }}
+    }
     
-    .data-value {{
-        color: #f9fafb;
-        font-size: 1rem;
-        font-weight: 600;
-    }}
-    
-    .data-value-large {{
-        color: #10b981;
-        font-size: 1.5rem;
-        font-weight: 700;
-    }}
-    
-    /* Expander Override */
-    .streamlit-expanderHeader {{
+    .streamlit-expanderHeader {
         background: #0f1419 !important;
         border-radius: 8px !important;
         border: 1px solid #1e293b !important;
         font-weight: 600 !important;
         font-size: 0.875rem !important;
-    }}
+        color: #cbd5e1 !important;
+    }
     
-    /* Hide Streamlit branding */
-    #MainMenu {{visibility: hidden;}} 
-    footer {{visibility: hidden;}} 
-    header {{visibility: hidden;}}
+    .streamlit-expanderHeader:hover {
+        border-color: #2d3748 !important;
+    }
+    
+    .streamlit-expanderContent {
+        background: #0a0f1e !important;
+        border: 1px solid #1e293b !important;
+        border-top: none !important;
+        border-radius: 0 0 8px 8px !important;
+    }
+    
+    .stMultiSelect > div > div {
+        background: #141b2b !important;
+        border: 1px solid #1e293b !important;
+        border-radius: 6px !important;
+    }
+    
+    .stDateInput > div > div {
+        background: #141b2b !important;
+        border: 1px solid #1e293b !important;
+        border-radius: 6px !important;
+    }
+    
+    #MainMenu {visibility: hidden;} 
+    footer {visibility: hidden;} 
+    header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -647,21 +591,9 @@ def load_bookings_from_db(club_filter):
         
         cursor.execute("""
             SELECT 
-                id,
-                booking_id,
-                guest_email,
-                date,
-                tee_time,
-                players,
-                total,
-                status,
-                note,
-                club,
-                timestamp,
-                customer_confirmed_at,
-                updated_at,
-                updated_by,
-                created_at
+                id, booking_id, guest_email, date, tee_time, players, total,
+                status, note, club, timestamp, customer_confirmed_at,
+                updated_at, updated_by, created_at
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
@@ -676,7 +608,6 @@ def load_bookings_from_db(club_filter):
         
         df = pd.DataFrame(bookings)
         
-        # Convert timestamp columns
         for col in ['timestamp', 'customer_confirmed_at', 'updated_at', 'created_at']:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
@@ -701,9 +632,7 @@ def update_booking_status(booking_id: str, new_status: str, updated_by: str):
         
         cursor.execute("""
             UPDATE bookings
-            SET status = %s,
-                updated_at = NOW(),
-                updated_by = %s
+            SET status = %s, updated_at = NOW(), updated_by = %s
             WHERE booking_id = %s;
         """, (new_status, updated_by, booking_id))
         
@@ -720,7 +649,6 @@ def update_booking_status(booking_id: str, new_status: str, updated_by: str):
 # MAIN DASHBOARD
 # ========================================
 
-# Sidebar
 with st.sidebar:
     st.markdown(f"""
         <div style='text-align: center; padding: 1.5rem 1rem; border-bottom: 1px solid #1e293b; margin-bottom: 1.5rem;'>
@@ -740,7 +668,6 @@ with st.sidebar:
     
     st.markdown("<div style='height: 1px; background: #1e293b; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
     
-    # Filters
     st.markdown("#### 📊 Filters")
     
     status_filter = st.multiselect(
@@ -754,20 +681,17 @@ with st.sidebar:
         value=(datetime.now().date(), datetime.now().date() + timedelta(days=30))
     )
 
-# Main content
 st.markdown("""
     <h1 style='margin-bottom: 0.5rem;'>Booking Requests</h1>
     <p style='color: #64748b; margin-bottom: 2rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
 """, unsafe_allow_html=True)
 
-# Load bookings
 df, source = load_bookings_from_db(st.session_state.customer_id)
 
 if df.empty:
     st.info("📭 No bookings found")
     st.stop()
 
-# Apply filters
 filtered_df = df.copy()
 if status_filter:
     filtered_df = filtered_df[filtered_df['status'].isin(status_filter)]
@@ -779,7 +703,6 @@ if len(date_range) == 2:
         (filtered_df['date'].dt.date <= end_date)
     ]
 
-# Metrics
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -832,7 +755,6 @@ with col4:
 
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
-# Booking cards
 if len(date_range) == 2:
     date_str = f"{date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}"
 else:
@@ -845,12 +767,13 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
+# ========================================
+# BOOKING CARDS - FIXED VERSION
+# ========================================
 for idx, booking in filtered_df.iterrows():
-    # Status timeline with icon
     status_icon = get_status_icon(booking['status'])
     status_class = get_status_color(booking['status'])
     
-    # Handle None values
     tee_time_display = booking.get('tee_time', 'Not Specified')
     if tee_time_display == 'None' or tee_time_display is None or pd.isna(tee_time_display):
         tee_time_display = 'Not Specified'
@@ -859,73 +782,64 @@ for idx, booking in filtered_df.iterrows():
     if note_content is None or pd.isna(note_content):
         note_content = 'No additional information provided'
     
-    # Create card container with custom styling
     with st.container():
-        # Header section
+        # CARD HEADER
         st.markdown(f"""
-            <div class='booking-card'>
-                <div class='booking-header'>
-                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
-                        <div class='status-timeline'>
-                            <span class='status-icon'>{status_icon}</span>
-                            <span class='status-badge {status_class}'>{booking['status']}</span>
-                        </div>
-                        <div style='text-align: right;'>
-                            <div class='timestamp'>Received</div>
-                            <div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div>
-                        </div>
+            <div style='background: #141b2b; border: 1px solid #1e293b; border-radius: 12px 12px 0 0; padding: 1.25rem 1.5rem;'>
+                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
+                    <div class='status-timeline'>
+                        <span class='status-icon'>{status_icon}</span>
+                        <span class='status-badge {status_class}'>{booking['status']}</span>
                     </div>
-                    
-                    <div style='display: flex; justify-content: space-between; align-items: baseline;'>
-                        <div>
-                            <div class='booking-id'>{booking['booking_id']}</div>
-                            <div class='booking-email'>{booking['guest_email']}</div>
-                        </div>
+                    <div style='text-align: right;'>
+                        <div class='timestamp'>RECEIVED</div>
+                        <div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div>
                     </div>
+                </div>
+                <div>
+                    <div class='booking-id'>{booking['booking_id']}</div>
+                    <div class='booking-email'>{booking['guest_email']}</div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
         
-        # Body section with Streamlit columns for better layout
+        # CARD BODY - STAYS OPEN
+        st.markdown("""
+            <div style='background: #141b2b; border: 1px solid #1e293b; border-top: none; border-radius: 0 0 12px 12px; padding: 1.5rem; margin-bottom: 1rem;'>
+        """, unsafe_allow_html=True)
+        
+        # DATA GRID
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.markdown("""
-                <div class='data-label'>📅 Tee Time Date</div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"**{booking['date'].strftime('%b %d, %Y')}**")
+            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div>", unsafe_allow_html=True)
         
         with col2:
-            st.markdown("""
-                <div class='data-label'>⏰ Time</div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"**{tee_time_display}**")
+            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div>", unsafe_allow_html=True)
         
         with col3:
-            st.markdown("""
-                <div class='data-label'>👥 Players</div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"**{booking['players']} Player{'s' if booking['players'] != 1 else ''}**")
+            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div>", unsafe_allow_html=True)
         
         with col4:
-            st.markdown("""
-                <div class='data-label'>💰 Total Amount</div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"<div class='data-value-large'>${booking['total']:,.2f}</div>", unsafe_allow_html=True)
+            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div>", unsafe_allow_html=True)
         
-        # Expandable section for details
+        # CLOSE CARD BODY
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         with st.expander("📄 View Full Details", expanded=False):
             detail_col1, detail_col2 = st.columns([2, 1])
             
             with detail_col1:
-                # Email content section
                 st.markdown("""
-                    <div class='email-header'>
-                        📧 ORIGINAL REQUEST
+                    <div style='background: #0f1419; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 1px solid #1e293b; border-bottom: none; margin-bottom: 0;'>
+                        <div class='data-label' style='margin: 0;'>📧 ORIGINAL REQUEST</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Display email content in a nice container
                 st.text_area(
                     label="Email Content",
                     value=note_content,
@@ -935,7 +849,6 @@ for idx, booking in filtered_df.iterrows():
                     key=f"email_{booking['booking_id']}"
                 )
                 
-                # Additional info
                 if booking.get('updated_by') and not pd.isna(booking.get('updated_by')):
                     st.markdown(f"""
                         <div style='margin-top: 1.5rem; padding: 1rem; background: #0f1419; border-radius: 8px; border: 1px solid #1e293b;'>
@@ -946,44 +859,39 @@ for idx, booking in filtered_df.iterrows():
                     """, unsafe_allow_html=True)
             
             with detail_col2:
-                st.markdown("#### ⚡ Quick Actions")
+                st.markdown("### ⚡ Quick Actions")
                 
-                # Status update buttons
                 current_status = booking['status']
                 
                 if current_status in ['Inquiry', 'Pending']:
                     if st.button("🟡 Mark as Requested", key=f"req_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
-                            st.success("✅ Status updated to Requested")
+                            st.success("✅ Updated")
                             st.cache_data.clear()
                             st.rerun()
                 
                 if current_status == 'Requested':
                     if st.button("🟠 Mark as Confirmed", key=f"conf_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                            st.success("✅ Status updated to Confirmed")
+                            st.success("✅ Updated")
                             st.cache_data.clear()
                             st.rerun()
                 
                 if current_status == 'Confirmed':
                     if st.button("✅ Mark as Booked", key=f"book_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
-                            st.success("✅ Status updated to Booked")
+                            st.success("✅ Updated")
                             st.cache_data.clear()
                             st.rerun()
                 
-                # Reject/Cancel options
                 if current_status not in ['Rejected', 'Cancelled', 'Booked']:
                     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
                     if st.button("❌ Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
-                            st.warning("Booking rejected")
+                            st.warning("Rejected")
                             st.cache_data.clear()
                             st.rerun()
-        
-        st.markdown("<div style='margin-bottom: 0.5rem;'></div>", unsafe_allow_html=True)
 
-# Export options
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 st.markdown("#### 📤 Export Options")
 col1, col2, col3 = st.columns(3)
