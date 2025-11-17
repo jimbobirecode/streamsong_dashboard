@@ -6,6 +6,7 @@ import psycopg
 from psycopg.rows import dict_row
 from datetime import datetime, timedelta
 from io import BytesIO
+import html
 
 # ========================================
 # DATABASE CONNECTION
@@ -957,8 +958,8 @@ for idx, booking in filtered_df.iterrows():
                 <!-- Booking Info Header -->
                 <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'>
                     <div style='flex: 1;'>
-                        <div class='booking-id' style='margin-bottom: 0.5rem;'>{booking['booking_id']}</div>
-                        <div class='booking-email'>{booking['guest_email']}</div>
+                        <div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>
+                        <div class='booking-email'>{html.escape(str(booking['guest_email']))}</div>
                     </div>
                     <div style='text-align: right;'>
                         <div class='timestamp'>RECEIVED</div>
