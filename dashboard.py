@@ -473,11 +473,17 @@ st.markdown("""
         transition: all 0.2s ease;
         width: 100%;
         letter-spacing: 0.3px;
+        cursor: pointer;
     }
-    
-    .stButton > button:hover { 
+
+    .stButton > button:hover {
         background: #059669;
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        transform: translateY(-1px);
+    }
+
+    .stButton > button:active {
+        transform: translateY(0px);
     }
     
     h1 { 
@@ -948,29 +954,77 @@ with st.sidebar:
 
     st.markdown("#### Filters")
 
-    # Initialize auto_include_status if not present
+    # Initialize filter state
     if 'auto_include_status' not in st.session_state:
         st.session_state.auto_include_status = set()
+    if 'clicked_status_filter' not in st.session_state:
+        st.session_state.clicked_status_filter = None
+    if 'date_filter_preset' not in st.session_state:
+        st.session_state.date_filter_preset = "Next 30 Days"
 
-    # Merge default statuses with auto-included ones
-    default_statuses = ["Inquiry", "Requested", "Confirmed", "Booked", "Pending"]
-    all_default_statuses = list(set(default_statuses) | st.session_state.auto_include_status)
+    # Date preset selector
+    date_preset = st.selectbox(
+        "Date Preset",
+        ["Today", "Next 7 Days", "Next 30 Days", "Next 60 Days", "Next 90 Days", "All Upcoming", "Custom"],
+        index=2  # Default to "Next 30 Days"
+    )
+
+    # Calculate date range based on preset
+    if date_preset == "Today":
+        date_range = (datetime.now().date(), datetime.now().date())
+    elif date_preset == "Next 7 Days":
+        date_range = (datetime.now().date(), datetime.now().date() + timedelta(days=7))
+    elif date_preset == "Next 30 Days":
+        date_range = (datetime.now().date(), datetime.now().date() + timedelta(days=30))
+    elif date_preset == "Next 60 Days":
+        date_range = (datetime.now().date(), datetime.now().date() + timedelta(days=60))
+    elif date_preset == "Next 90 Days":
+        date_range = (datetime.now().date(), datetime.now().date() + timedelta(days=90))
+    elif date_preset == "All Upcoming":
+        date_range = (datetime.now().date(), datetime.now().date() + timedelta(days=365))
+    else:  # Custom
+        date_range = st.date_input(
+            "Custom Date Range",
+            value=(datetime.now().date(), datetime.now().date() + timedelta(days=30))
+        )
+
+    # Status filter - if clicked from metric card, use that
+    if st.session_state.clicked_status_filter:
+        default_statuses = [st.session_state.clicked_status_filter]
+    else:
+        # Merge default statuses with auto-included ones
+        default_statuses = ["Inquiry", "Requested", "Confirmed", "Booked", "Pending"]
+        default_statuses = list(set(default_statuses) | st.session_state.auto_include_status)
 
     status_filter = st.multiselect(
         "Status",
         ["Inquiry", "Requested", "Confirmed", "Booked", "Rejected", "Cancelled", "Pending"],
-        default=all_default_statuses
+        default=default_statuses
     )
-    
-    date_range = st.date_input(
-        "Date Range",
-        value=(datetime.now().date(), datetime.now().date() + timedelta(days=30))
-    )
+
+    # Clear filter button
+    if st.button("Clear All Filters", use_container_width=True):
+        st.session_state.clicked_status_filter = None
+        st.cache_data.clear()
+        st.rerun()
 
 st.markdown("""
     <h1 style='margin-bottom: 0.5rem;'>Booking Requests</h1>
-    <p style='color: #64748b; margin-bottom: 2rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
+    <p style='color: #64748b; margin-bottom: 1rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
 """, unsafe_allow_html=True)
+
+# Show active filter indicator
+if st.session_state.clicked_status_filter:
+    st.markdown(f"""
+        <div style='background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;'>
+            <div style='display: flex; align-items: center; gap: 0.5rem;'>
+                <span style='font-size: 1.25rem;'>🎯</span>
+                <span style='color: #10b981; font-weight: 600;'>Filtering by: {st.session_state.clicked_status_filter}</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("<div style='margin-bottom: 1rem;'></div>", unsafe_allow_html=True)
 
 df, source = load_bookings_from_db(st.session_state.customer_id)
 
@@ -982,67 +1036,71 @@ filtered_df = df.copy()
 if status_filter:
     filtered_df = filtered_df[filtered_df['status'].isin(status_filter)]
 
-if len(date_range) == 2:
-    start_date, end_date = date_range
-    filtered_df = filtered_df[
-        (filtered_df['date'].dt.date >= start_date) & 
-        (filtered_df['date'].dt.date <= end_date)
-    ]
+# Handle date range filtering
+if date_range:
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+        filtered_df = filtered_df[
+            (filtered_df['date'].dt.date >= start_date) &
+            (filtered_df['date'].dt.date <= end_date)
+        ]
+    elif hasattr(date_range, '__len__') and len(date_range) == 2:
+        start_date, end_date = date_range[0], date_range[1]
+        filtered_df = filtered_df[
+            (filtered_df['date'].dt.date >= start_date) &
+            (filtered_df['date'].dt.date <= end_date)
+        ]
 
 col1, col2, col3, col4 = st.columns(4)
 
+# Calculate counts for all statuses (before filtering)
+all_inquiry_count = len(df[df['status'].isin(['Inquiry', 'Pending'])])
+all_requested_count = len(df[df['status'] == 'Requested'])
+all_confirmed_count = len(df[df['status'] == 'Confirmed'])
+all_booked_count = len(df[df['status'] == 'Booked'])
+
 with col1:
     inquiry_count = len(filtered_df[filtered_df['status'].isin(['Inquiry', 'Pending'])])
-    st.markdown(f"""
-        <div class='metric-card'>
-            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='width: 8px; height: 8px; border-radius: 50%; background: #60a5fa;'></div>
-                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Inquiry</div>
-            </div>
-            <div style='font-size: 2rem; font-weight: 700; color: #60a5fa; line-height: 1;'>{inquiry_count}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    if st.button(f"🔵 Inquiry\n{all_inquiry_count}", key="filter_inquiry", use_container_width=True, help="Click to filter Inquiry status"):
+        st.session_state.clicked_status_filter = "Inquiry"
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown(f"<div style='text-align: center; color: #64748b; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {inquiry_count}</div>", unsafe_allow_html=True)
 
 with col2:
     requested_count = len(filtered_df[filtered_df['status'] == 'Requested'])
-    st.markdown(f"""
-        <div class='metric-card'>
-            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='width: 8px; height: 8px; border-radius: 50%; background: #eab308;'></div>
-                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Requested</div>
-            </div>
-            <div style='font-size: 2rem; font-weight: 700; color: #eab308; line-height: 1;'>{requested_count}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    if st.button(f"🟡 Requested\n{all_requested_count}", key="filter_requested", use_container_width=True, help="Click to filter Requested status"):
+        st.session_state.clicked_status_filter = "Requested"
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown(f"<div style='text-align: center; color: #64748b; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {requested_count}</div>", unsafe_allow_html=True)
 
 with col3:
     confirmed_count = len(filtered_df[filtered_df['status'] == 'Confirmed'])
-    st.markdown(f"""
-        <div class='metric-card'>
-            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='width: 8px; height: 8px; border-radius: 50%; background: #f97316;'></div>
-                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Confirmed</div>
-            </div>
-            <div style='font-size: 2rem; font-weight: 700; color: #f97316; line-height: 1;'>{confirmed_count}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    if st.button(f"🟠 Confirmed\n{all_confirmed_count}", key="filter_confirmed", use_container_width=True, help="Click to filter Confirmed status"):
+        st.session_state.clicked_status_filter = "Confirmed"
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown(f"<div style='text-align: center; color: #64748b; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {confirmed_count}</div>", unsafe_allow_html=True)
 
 with col4:
     booked_count = len(filtered_df[filtered_df['status'] == 'Booked'])
-    st.markdown(f"""
-        <div class='metric-card'>
-            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='width: 8px; height: 8px; border-radius: 50%; background: #10b981;'></div>
-                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Booked</div>
-            </div>
-            <div style='font-size: 2rem; font-weight: 700; color: #10b981; line-height: 1;'>{booked_count}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    if st.button(f"✅ Booked\n{all_booked_count}", key="filter_booked", use_container_width=True, help="Click to filter Booked status"):
+        st.session_state.clicked_status_filter = "Booked"
+        st.cache_data.clear()
+        st.rerun()
+    st.markdown(f"<div style='text-align: center; color: #64748b; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {booked_count}</div>", unsafe_allow_html=True)
 
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
-if len(date_range) == 2:
-    date_str = f"{date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}"
+# Format date range string
+if date_range:
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        date_str = f"{date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}"
+    elif hasattr(date_range, '__len__') and len(date_range) == 2:
+        date_str = f"{date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}"
+    else:
+        date_str = "all dates"
 else:
     date_str = "all dates"
 
@@ -1114,7 +1172,42 @@ for idx, booking in filtered_df.iterrows():
 
         # Render the complete card
         st.markdown(card_html, unsafe_allow_html=True)
-        
+
+        # Quick status change buttons (above the expander)
+        if not is_rejected and not is_cancelled:
+            st.markdown("<div style='margin: -0.5rem 0 1rem 0;'>", unsafe_allow_html=True)
+            status_col1, status_col2, status_col3, status_col4, status_col5 = st.columns([1, 1, 1, 1, 2])
+
+            with status_col1:
+                if booking['status'] in ['Inquiry', 'Pending']:
+                    if st.button("→ Requested", key=f"quick_req_{booking['booking_id']}", use_container_width=True, help="Move to Requested"):
+                        if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
+                            st.cache_data.clear()
+                            st.rerun()
+
+            with status_col2:
+                if booking['status'] == 'Requested':
+                    if st.button("→ Confirmed", key=f"quick_conf_{booking['booking_id']}", use_container_width=True, help="Move to Confirmed"):
+                        if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                            st.cache_data.clear()
+                            st.rerun()
+
+            with status_col3:
+                if booking['status'] == 'Confirmed':
+                    if st.button("→ Booked", key=f"quick_book_{booking['booking_id']}", use_container_width=True, help="Move to Booked"):
+                        if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
+                            st.cache_data.clear()
+                            st.rerun()
+
+            with status_col4:
+                if booking['status'] not in ['Rejected', 'Cancelled', 'Booked']:
+                    if st.button("✕ Reject", key=f"quick_rej_{booking['booking_id']}", use_container_width=True, help="Reject this booking"):
+                        if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                            st.cache_data.clear()
+                            st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
         with st.expander("View Full Details", expanded=False):
             detail_col1, detail_col2 = st.columns([2, 1])
 
