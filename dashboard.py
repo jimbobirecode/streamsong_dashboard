@@ -952,8 +952,8 @@ for idx, booking in filtered_df.iterrows():
     progress_bar_html = generate_status_progress_bar(booking['status'])
 
     with st.container():
-        # CARD HEADER - Improved structure with animation
-        st.markdown(f"""
+        # Build complete card HTML including progress bar and details
+        card_html = f"""
             <div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'>
                 <!-- Booking Info Header -->
                 <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'>
@@ -974,52 +974,31 @@ for idx, booking in filtered_df.iterrows():
 
                 <!-- Divider -->
                 <div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div>
-        """, unsafe_allow_html=True)
-        
-        # DATA GRID - Inside the same card
-        st.markdown("""
+
                 <!-- Booking Details Grid -->
                 <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'>
-        """, unsafe_allow_html=True)
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.markdown(f"""
                     <div>
                         <div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div>
                         <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div>
                     </div>
-            """, unsafe_allow_html=True)
-
-        with col2:
-            st.markdown(f"""
                     <div>
                         <div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div>
                         <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div>
                     </div>
-            """, unsafe_allow_html=True)
-
-        with col3:
-            st.markdown(f"""
                     <div>
                         <div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div>
                         <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div>
                     </div>
-            """, unsafe_allow_html=True)
-
-        with col4:
-            st.markdown(f"""
                     <div>
                         <div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div>
                         <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div>
                     </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("""
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+        """
+
+        # Render the complete card
+        st.markdown(card_html, unsafe_allow_html=True)
         
         with st.expander("📄 View Full Details", expanded=False):
             detail_col1, detail_col2 = st.columns([2, 1])
