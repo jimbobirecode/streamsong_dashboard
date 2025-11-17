@@ -948,54 +948,45 @@ for idx, booking in filtered_df.iterrows():
     if note_content is None or pd.isna(note_content):
         note_content = 'No additional information provided'
 
-    # Generate the linear progress bar
-    progress_bar_html = generate_status_progress_bar(booking['status'])
+    # Prepare progress bar data
+    current_status = booking['status']
+    if current_status == 'Pending':
+        current_status = 'Inquiry'
+
+    stages = [
+        {'name': 'Inquiry', 'icon': '🔵', 'color': '#60a5fa'},
+        {'name': 'Requested', 'icon': '🟡', 'color': '#eab308'},
+        {'name': 'Confirmed', 'icon': '🟠', 'color': '#f97316'},
+        {'name': 'Booked', 'icon': '✅', 'color': '#10b981'}
+    ]
+
+    is_rejected = current_status == 'Rejected'
+    is_cancelled = current_status == 'Cancelled'
+    current_index = next((i for i, s in enumerate(stages) if s['name'] == current_status), 0)
+    progress_width = (current_index / (len(stages) - 1)) * 100 if len(stages) > 1 else 0
 
     with st.container():
+        # Build progress bar HTML inline
+        if is_rejected or is_cancelled:
+            progress_html = f"<div style='background: #0a0f1e; padding: 1rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'><span style='font-size: 1.5rem;'>{'❌' if is_rejected else '⚫'}</span><span style='color: {'#ef4444' if is_rejected else '#64748b'}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span></div></div>"
+        else:
+            # Build stage nodes HTML
+            stages_html = ""
+            for i, stage in enumerate(stages):
+                is_active = i <= current_index
+                is_current = i == current_index
+                bg_color = stage['color'] if is_active else '#1e293b'
+                text_color = '#f9fafb' if is_active else '#64748b'
+                border_color = stage['color'] if is_current else ('#2d3748' if is_active else '#1e293b')
+                box_shadow = '0 0 0 4px rgba(16, 185, 129, 0.2)' if is_current else 'none'
+                font_weight = '700' if is_current else '600'
+
+                stages_html += f"<div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'><div style='width: 2rem; height: 2rem; border-radius: 50%; background: {bg_color}; border: 3px solid {border_color}; display: flex; align-items: center; justify-content: center; box-shadow: {box_shadow}; transition: all 0.3s ease;'><span style='font-size: 0.875rem;'>{stage['icon']}</span></div><div style='margin-top: 0.5rem; font-size: 0.75rem; font-weight: {font_weight}; color: {text_color}; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;'>{stage['name']}</div></div>"
+
+            progress_html = f"<div style='background: #0a0f1e; padding: 1.25rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 1rem; left: 2rem; right: 2rem; height: 3px; background: #1e293b; z-index: 1;'></div><div style='position: absolute; top: 1rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #60a5fa, #10b981); z-index: 2;'></div>{stages_html}</div></div>"
+
         # Build complete card HTML including progress bar and details
-        card_html = f"""
-            <div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'>
-                <!-- Booking Info Header -->
-                <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'>
-                    <div style='flex: 1;'>
-                        <div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>
-                        <div class='booking-email'>{html.escape(str(booking['guest_email']))}</div>
-                    </div>
-                    <div style='text-align: right;'>
-                        <div class='timestamp'>RECEIVED</div>
-                        <div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div>
-                    </div>
-                </div>
-
-                <!-- Linear Status Progress Bar -->
-                <div style='margin-bottom: 1.5rem;'>
-                    {progress_bar_html}
-                </div>
-
-                <!-- Divider -->
-                <div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div>
-
-                <!-- Booking Details Grid -->
-                <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'>
-                    <div>
-                        <div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div>
-                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div>
-                    </div>
-                    <div>
-                        <div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div>
-                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div>
-                    </div>
-                    <div>
-                        <div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div>
-                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div>
-                    </div>
-                    <div>
-                        <div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div>
-                        <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div>
-                    </div>
-                </div>
-            </div>
-        """
+        card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>RECEIVED</div><div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div></div></div></div>"""
 
         # Render the complete card
         st.markdown(card_html, unsafe_allow_html=True)
