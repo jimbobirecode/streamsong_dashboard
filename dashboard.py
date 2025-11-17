@@ -197,204 +197,284 @@ DARK_BG = "#0f172a"
 
 st.markdown(f"""
     <style>
-    /* Global Styles */
+    /* Global Styles - Enterprise Clean */
     .main {{
-        background: linear-gradient(135deg, {DARK_BG} 0%, #1e293b 100%);
+        background: #0a0f1e;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
     }}
     
-    /* Sidebar */
+    /* Sidebar - Minimal & Professional */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
-        border-right: 1px solid rgba(16, 185, 129, 0.2);
+        background: #0f1419;
+        border-right: 1px solid #1e293b;
     }}
     
-    /* Cards */
+    /* Metric Cards - Clean & Modern */
     .metric-card {{
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        padding: 1.5rem;
-        border-radius: 16px;
-        border: 1px solid rgba(16, 185, 129, 0.2);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
+        background: #141b2b;
+        padding: 1.75rem;
+        border-radius: 12px;
+        border: 1px solid #1e293b;
+        transition: all 0.2s ease;
     }}
     
     .metric-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 28px rgba(16, 185, 129, 0.2);
+        border-color: #2d3748;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }}
     
+    /* Booking Cards - Enterprise Grade */
     .booking-card {{
-        background: linear-gradient(135deg, #1e293b 0%, #2d3748 100%);
-        padding: 1.5rem;
-        border-radius: 16px;
-        border: 1px solid rgba(16, 185, 129, 0.15);
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        background: #141b2b;
+        padding: 0;
+        border-radius: 12px;
+        border: 1px solid #1e293b;
+        margin-bottom: 1rem;
+        overflow: hidden;
     }}
     
-    /* Email Content Styling */
+    .booking-header {{
+        background: #0f1419;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #1e293b;
+    }}
+    
+    .booking-body {{
+        padding: 1.5rem;
+    }}
+    
+    .booking-id {{
+        font-size: 1rem;
+        font-weight: 600;
+        color: #f9fafb;
+        margin: 0;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        letter-spacing: 0.5px;
+    }}
+    
+    .booking-email {{
+        color: #64748b;
+        font-size: 0.875rem;
+        margin: 0.375rem 0 0 0;
+    }}
+    
+    .timestamp {{
+        color: #64748b;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }}
+    
+    .timestamp-value {{
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-top: 0.25rem;
+    }}
+    
+    /* Email Content - Professional Display */
     .email-section {{
-        background: #0f172a;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-top: 1rem;
+        background: #0a0f1e;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 0;
+        margin-top: 1.5rem;
+        overflow: hidden;
     }}
     
     .email-header {{
-        color: #10b981;
-        font-size: 0.9rem;
+        background: #0f1419;
+        color: #64748b;
+        font-size: 0.8125rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #1e293b;
     }}
     
     .email-content {{
-        background: #1e293b;
-        border-left: 3px solid #10b981;
+        background: #0a0f1e;
         padding: 1rem;
-        border-radius: 8px;
-        color: #e5e7eb;
-        font-family: 'Courier New', monospace;
-        font-size: 0.85rem;
-        line-height: 1.6;
-        max-height: 300px;
+        color: #cbd5e1;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 0.8125rem;
+        line-height: 1.7;
+        max-height: 400px;
         overflow-y: auto;
         white-space: pre-wrap;
         word-wrap: break-word;
     }}
     
-    /* Timeline Status */
+    /* Status Timeline - Minimalist */
     .status-timeline {{
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
+        gap: 0.625rem;
+        background: #0a0f1e;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #1e293b;
     }}
     
     .status-icon {{
-        font-size: 1.5rem;
+        font-size: 1.125rem;
         line-height: 1;
     }}
     
-    /* Status Badges */
+    /* Status Badges - Corporate Style */
     .status-badge {{
-        padding: 0.5rem 1rem;
-        border-radius: 24px;
+        padding: 0.375rem 0.875rem;
+        border-radius: 6px;
         font-weight: 600;
-        font-size: 0.85rem;
+        font-size: 0.8125rem;
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }}
 
     .status-inquiry {{
-        background: rgba(147, 197, 253, 0.15);
+        background: rgba(59, 130, 246, 0.1);
         color: #60a5fa;
-        border: 2px solid rgba(147, 197, 253, 0.3);
+        border: 1px solid rgba(59, 130, 246, 0.2);
     }}
 
     .status-requested {{
-        background: rgba(251, 191, 36, 0.15);
-        color: #fbbf24;
-        border: 2px solid rgba(251, 191, 36, 0.3);
+        background: rgba(234, 179, 8, 0.1);
+        color: #eab308;
+        border: 1px solid rgba(234, 179, 8, 0.2);
     }}
 
     .status-confirmed {{
-        background: rgba(251, 146, 60, 0.15);
-        color: #fb923c;
-        border: 2px solid rgba(251, 146, 60, 0.3);
+        background: rgba(249, 115, 22, 0.1);
+        color: #f97316;
+        border: 1px solid rgba(249, 115, 22, 0.2);
     }}
 
     .status-booked {{
-        background: rgba(16, 185, 129, 0.15);
+        background: rgba(16, 185, 129, 0.1);
         color: #10b981;
-        border: 2px solid rgba(16, 185, 129, 0.3);
+        border: 1px solid rgba(16, 185, 129, 0.2);
     }}
 
     .status-rejected {{
-        background: rgba(239, 68, 68, 0.15);
+        background: rgba(239, 68, 68, 0.1);
         color: #ef4444;
-        border: 2px solid rgba(239, 68, 68, 0.3);
+        border: 1px solid rgba(239, 68, 68, 0.2);
     }}
 
     .status-cancelled {{
-        background: rgba(156, 163, 175, 0.15);
-        color: #9ca3af;
-        border: 2px solid rgba(156, 163, 175, 0.3);
+        background: rgba(100, 116, 139, 0.1);
+        color: #64748b;
+        border: 1px solid rgba(100, 116, 139, 0.2);
     }}
     
-    /* Buttons */
+    /* Buttons - Enterprise Style */
     .stButton > button {{
-        background: linear-gradient(135deg, {SECONDARY_COLOR} 0%, {PRIMARY_COLOR} 100%);
+        background: #10b981;
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 12px;
+        padding: 0.625rem 1.25rem;
+        border-radius: 6px;
         font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
         width: 100%;
+        letter-spacing: 0.3px;
     }}
     
     .stButton > button:hover {{ 
-        transform: translateY(-2px); 
-        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4); 
+        background: #059669;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
     }}
     
-    /* Typography */
-    h1, h2, h3, h4, h5, h6 {{ 
+    /* Typography - Professional */
+    h1 {{ 
         color: #f9fafb !important; 
-        font-weight: 700 !important; 
+        font-weight: 700 !important;
+        font-size: 1.875rem !important;
+        letter-spacing: -0.5px !important;
+    }}
+    
+    h2, h3, h4, h5, h6 {{ 
+        color: #f9fafb !important; 
+        font-weight: 600 !important; 
     }}
     
     p, span, div, label {{ 
-        color: #e5e7eb !important; 
+        color: #cbd5e1 !important; 
     }}
     
-    /* Badges */
+    /* Badges - Refined */
     .user-badge {{
-        background: linear-gradient(135deg, {SECONDARY_COLOR} 0%, {PRIMARY_COLOR} 100%);
+        background: #10b981;
         color: white;
         padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
+        border-radius: 6px;
+        font-size: 0.8125rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 0.5rem;
+        letter-spacing: 0.3px;
     }}
     
     .club-badge {{
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-        color: #1f2937;
+        background: #eab308;
+        color: #0f1419;
         padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
+        border-radius: 6px;
+        font-size: 0.8125rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 1rem;
+        letter-spacing: 0.3px;
     }}
     
-    /* Info boxes */
-    .info-row {{
-        display: flex;
-        justify-content: space-between;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #334155;
+    /* Data Grid - Enterprise */
+    .data-grid {{
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        padding: 0;
     }}
     
-    .info-label {{
-        color: #94a3b8;
+    .data-cell {{
+        padding: 1rem;
+        border-radius: 8px;
+        background: #0f1419;
+        border: 1px solid #1e293b;
+    }}
+    
+    .data-label {{
+        color: #64748b;
+        font-size: 0.75rem;
         font-weight: 600;
-        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
     }}
     
-    .info-value {{
+    .data-value {{
         color: #f9fafb;
-        font-weight: 500;
+        font-size: 1rem;
+        font-weight: 600;
+    }}
+    
+    .data-value-large {{
+        color: #10b981;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }}
+    
+    /* Expander Override */
+    .streamlit-expanderHeader {{
+        background: #0f1419 !important;
+        border-radius: 8px !important;
+        border: 1px solid #1e293b !important;
+        font-weight: 600 !important;
+        font-size: 0.875rem !important;
     }}
     
     /* Hide Streamlit branding */
@@ -643,25 +723,25 @@ def update_booking_status(booking_id: str, new_status: str, updated_by: str):
 # Sidebar
 with st.sidebar:
     st.markdown(f"""
-        <div style='text-align: center; padding: 1rem;'>
-            <h2 style='color: {PRIMARY_COLOR}; margin: 0;'>🏌️ TeeMail</h2>
-            <p style='color: #94a3b8; font-size: 0.9rem; margin-top: 0.5rem;'>Booking Dashboard</p>
+        <div style='text-align: center; padding: 1.5rem 1rem; border-bottom: 1px solid #1e293b; margin-bottom: 1.5rem;'>
+            <h2 style='color: #10b981; margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px;'>TeeMail</h2>
+            <p style='color: #64748b; font-size: 0.8125rem; margin-top: 0.375rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;'>Booking Dashboard</p>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown(f"<div class='user-badge'>👤 {st.session_state.full_name}</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='club-badge'>🏌️ {st.session_state.customer_id.title()}</div>", unsafe_allow_html=True)
     
-    st.markdown("---")
+    st.markdown("<div style='height: 1px; background: #1e293b; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
     
     if st.button("🚪 Logout", use_container_width=True):
         logout()
         st.rerun()
     
-    st.markdown("---")
+    st.markdown("<div style='height: 1px; background: #1e293b; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
     
     # Filters
-    st.subheader("📊 Filters")
+    st.markdown("#### 📊 Filters")
     
     status_filter = st.multiselect(
         "Status",
@@ -675,7 +755,10 @@ with st.sidebar:
     )
 
 # Main content
-st.title("📧 Booking Requests Dashboard")
+st.markdown("""
+    <h1 style='margin-bottom: 0.5rem;'>Booking Requests</h1>
+    <p style='color: #64748b; margin-bottom: 2rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
+""", unsafe_allow_html=True)
 
 # Load bookings
 df, source = load_bookings_from_db(st.session_state.customer_id)
@@ -703,9 +786,11 @@ with col1:
     inquiry_count = len(filtered_df[filtered_df['status'].isin(['Inquiry', 'Pending'])])
     st.markdown(f"""
         <div class='metric-card'>
-            <div style='font-size: 2rem;'>🔵</div>
-            <div style='font-size: 1.5rem; font-weight: 700; color: #60a5fa;'>{inquiry_count}</div>
-            <div style='color: #94a3b8; font-size: 0.9rem;'>New Inquiries</div>
+            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
+                <div style='font-size: 1.75rem; opacity: 0.9;'>🔵</div>
+                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Inquiry</div>
+            </div>
+            <div style='font-size: 2rem; font-weight: 700; color: #60a5fa; line-height: 1;'>{inquiry_count}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -713,9 +798,11 @@ with col2:
     requested_count = len(filtered_df[filtered_df['status'] == 'Requested'])
     st.markdown(f"""
         <div class='metric-card'>
-            <div style='font-size: 2rem;'>🟡</div>
-            <div style='font-size: 1.5rem; font-weight: 700; color: #fbbf24;'>{requested_count}</div>
-            <div style='color: #94a3b8; font-size: 0.9rem;'>Requested</div>
+            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
+                <div style='font-size: 1.75rem; opacity: 0.9;'>🟡</div>
+                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Requested</div>
+            </div>
+            <div style='font-size: 2rem; font-weight: 700; color: #eab308; line-height: 1;'>{requested_count}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -723,9 +810,11 @@ with col3:
     confirmed_count = len(filtered_df[filtered_df['status'] == 'Confirmed'])
     st.markdown(f"""
         <div class='metric-card'>
-            <div style='font-size: 2rem;'>🟠</div>
-            <div style='font-size: 1.5rem; font-weight: 700; color: #fb923c;'>{confirmed_count}</div>
-            <div style='color: #94a3b8; font-size: 0.9rem;'>Confirmed</div>
+            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
+                <div style='font-size: 1.75rem; opacity: 0.9;'>🟠</div>
+                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Confirmed</div>
+            </div>
+            <div style='font-size: 2rem; font-weight: 700; color: #f97316; line-height: 1;'>{confirmed_count}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -733,16 +822,23 @@ with col4:
     booked_count = len(filtered_df[filtered_df['status'] == 'Booked'])
     st.markdown(f"""
         <div class='metric-card'>
-            <div style='font-size: 2rem;'>✅</div>
-            <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>{booked_count}</div>
-            <div style='color: #94a3b8; font-size: 0.9rem;'>Booked</div>
+            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
+                <div style='font-size: 1.75rem; opacity: 0.9;'>✅</div>
+                <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Booked</div>
+            </div>
+            <div style='font-size: 2rem; font-weight: 700; color: #10b981; line-height: 1;'>{booked_count}</div>
         </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
 # Booking cards
-st.subheader(f"📋 {len(filtered_df)} Booking Requests")
+st.markdown(f"""
+    <div style='margin-bottom: 1.5rem;'>
+        <h3 style='color: #f9fafb; font-weight: 600; font-size: 1.125rem;'>{len(filtered_df)} Active Requests</h3>
+        <p style='color: #64748b; font-size: 0.875rem; margin-top: 0.25rem;'>Showing bookings from {date_range[0].strftime('%b %d')} to {date_range[1].strftime('%b %d, %Y')}</p>
+    </div>
+""", unsafe_allow_html=True)
 
 for idx, booking in filtered_df.iterrows():
     with st.container():
@@ -750,42 +846,54 @@ for idx, booking in filtered_df.iterrows():
         status_icon = get_status_icon(booking['status'])
         status_class = get_status_color(booking['status'])
         
+        tee_time_display = booking.get('tee_time', 'Not Specified')
+        if tee_time_display == 'None' or tee_time_display is None:
+            tee_time_display = 'Not Specified'
+        
         st.markdown(f"""
             <div class='booking-card'>
-                <div class='status-timeline'>
-                    <span class='status-icon'>{status_icon}</span>
-                    <span class='status-badge {status_class}'>{booking['status']}</span>
-                </div>
-                
-                <div style='display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;'>
-                    <div>
-                        <h3 style='margin: 0; color: #10b981;'>{booking['booking_id']}</h3>
-                        <p style='color: #94a3b8; margin: 0.25rem 0 0 0; font-size: 0.9rem;'>{booking['guest_email']}</p>
+                <div class='booking-header'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
+                        <div class='status-timeline'>
+                            <span class='status-icon'>{status_icon}</span>
+                            <span class='status-badge {status_class}'>{booking['status']}</span>
+                        </div>
+                        <div style='text-align: right;'>
+                            <div class='timestamp'>Received</div>
+                            <div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div>
+                        </div>
                     </div>
-                    <div style='text-align: right;'>
-                        <div style='color: #94a3b8; font-size: 0.85rem;'>Received</div>
-                        <div style='color: #f9fafb; font-weight: 600;'>{booking['timestamp'].strftime('%b %d, %Y %I:%M %p')}</div>
+                    
+                    <div style='display: flex; justify-content: space-between; align-items: baseline;'>
+                        <div>
+                            <div class='booking-id'>{booking['booking_id']}</div>
+                            <div class='booking-email'>{booking['guest_email']}</div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class='info-row'>
-                    <span class='info-label'>📅 Tee Time Date</span>
-                    <span class='info-value'>{booking['date'].strftime('%A, %B %d, %Y')}</span>
-                </div>
-                
-                <div class='info-row'>
-                    <span class='info-label'>⏰ Time</span>
-                    <span class='info-value'>{booking.get('tee_time', 'TBD')}</span>
-                </div>
-                
-                <div class='info-row'>
-                    <span class='info-label'>👥 Players</span>
-                    <span class='info-value'>{booking['players']}</span>
-                </div>
-                
-                <div class='info-row' style='border-bottom: none;'>
-                    <span class='info-label'>💰 Total</span>
-                    <span class='info-value' style='color: #10b981; font-weight: 700; font-size: 1.1rem;'>${booking['total']:,.2f}</span>
+                <div class='booking-body'>
+                    <div class='data-grid'>
+                        <div class='data-cell'>
+                            <div class='data-label'>📅 Tee Time Date</div>
+                            <div class='data-value'>{booking['date'].strftime('%b %d, %Y')}</div>
+                        </div>
+                        
+                        <div class='data-cell'>
+                            <div class='data-label'>⏰ Time</div>
+                            <div class='data-value'>{tee_time_display}</div>
+                        </div>
+                        
+                        <div class='data-cell'>
+                            <div class='data-label'>👥 Players</div>
+                            <div class='data-value'>{booking['players']} Player{'s' if booking['players'] != 1 else ''}</div>
+                        </div>
+                        
+                        <div class='data-cell'>
+                            <div class='data-label'>💰 Total Amount</div>
+                            <div class='data-value-large'>${booking['total']:,.2f}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -800,7 +908,7 @@ for idx, booking in filtered_df.iterrows():
                     st.markdown(f"""
                         <div class='email-section'>
                             <div class='email-header'>
-                                📧 Original Email Request
+                                📧 Original Request
                             </div>
                             <div class='email-content'>{booking['note']}</div>
                         </div>
@@ -809,9 +917,10 @@ for idx, booking in filtered_df.iterrows():
                 # Additional info
                 if booking.get('updated_by'):
                     st.markdown(f"""
-                        <div style='margin-top: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;'>
-                            <div style='color: #94a3b8; font-size: 0.85rem;'>Last Updated</div>
-                            <div style='color: #f9fafb;'>{booking['updated_at'].strftime('%b %d, %Y %I:%M %p')} by {booking['updated_by']}</div>
+                        <div style='margin-top: 1.5rem; padding: 1rem; background: #0f1419; border-radius: 8px; border: 1px solid #1e293b;'>
+                            <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Last Updated</div>
+                            <div style='color: #cbd5e1; font-size: 0.875rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
+                            <div style='color: #64748b; font-size: 0.8125rem; margin-top: 0.25rem;'>by {booking['updated_by']}</div>
                         </div>
                     """, unsafe_allow_html=True)
             
@@ -850,10 +959,11 @@ for idx, booking in filtered_df.iterrows():
                             st.cache_data.clear()
                             st.rerun()
         
-        st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom: 0.5rem;'></div>", unsafe_allow_html=True)
 
 # Export options
-st.markdown("---")
+st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+st.markdown("#### 📤 Export Options")
 col1, col2, col3 = st.columns(3)
 
 with col1:
