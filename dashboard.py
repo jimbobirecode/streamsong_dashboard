@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 from datetime import datetime, timedelta
 from io import BytesIO
 import html
+import re
 
 # ========================================
 # DATABASE CONNECTION
@@ -16,6 +17,33 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_db_connection():
     """Get database connection"""
     return psycopg.connect(DATABASE_URL)
+
+def extract_tee_time_from_note(note_content):
+    """
+    Extract tee time from email content.
+    Looks for patterns like:
+    - Time: 12:20 PM
+    - Time: 10:30 AM
+    - Tee Time: 3:45 PM
+    """
+    if not note_content or pd.isna(note_content):
+        return None
+
+    # Pattern to match "Time: HH:MM AM/PM"
+    patterns = [
+        r'Time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',  # Time: 12:20 PM
+        r'time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',  # time: 12:20 pm (case insensitive)
+        r'Tee\s+Time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',  # Tee Time: 12:20 PM
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, str(note_content), re.IGNORECASE)
+        if match:
+            tee_time = match.group(1).strip()
+            # Normalize to uppercase (12:20 PM)
+            return tee_time.upper()
+
+    return None
 
 def hash_password(password: str) -> str:
     """Hash password using bcrypt"""
@@ -751,6 +779,15 @@ def load_bookings_from_db(club_filter):
         else:
             df['tee_time'] = df['tee_time'].fillna('Not Specified')
 
+        # Extract tee times from note content if not already set
+        for idx in df.index:
+            current_tee_time = df.at[idx, 'tee_time']
+            if current_tee_time in ['Not Specified', None, ''] or pd.isna(current_tee_time):
+                note_content = df.at[idx, 'note']
+                extracted_time = extract_tee_time_from_note(note_content)
+                if extracted_time:
+                    df.at[idx, 'tee_time'] = extracted_time
+
         # Ensure note column exists and handle None/NaN
         if 'note' not in df.columns:
             df['note'] = 'No additional information provided'
@@ -812,6 +849,78 @@ def update_booking_status(booking_id: str, new_status: str, updated_by: str):
     except Exception as e:
         st.error(f"Error updating status: {e}")
         return False
+
+
+def update_booking_tee_time(booking_id: str, tee_time: str):
+    """Update booking tee_time in database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE bookings
+            SET tee_time = %s, updated_at = NOW()
+            WHERE booking_id = %s;
+        """, (tee_time, booking_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Error updating tee time: {e}")
+        return False
+
+
+def fix_all_tee_times(club_filter):
+    """Extract and update tee times for all bookings with missing tee times"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(row_factory=dict_row)
+
+        # Get all bookings with missing or "Not Specified" tee times
+        cursor.execute("""
+            SELECT id, booking_id, note, tee_time
+            FROM bookings
+            WHERE club = %s
+              AND (tee_time IS NULL OR tee_time = 'Not Specified' OR tee_time = '');
+        """, (club_filter,))
+
+        bookings = cursor.fetchall()
+
+        if not bookings:
+            cursor.close()
+            conn.close()
+            return 0, 0
+
+        updated_count = 0
+        not_found_count = 0
+
+        for booking in bookings:
+            note = booking['note']
+            extracted_time = extract_tee_time_from_note(note)
+
+            if extracted_time:
+                # Update the booking
+                cursor.execute("""
+                    UPDATE bookings
+                    SET tee_time = %s, updated_at = NOW()
+                    WHERE id = %s;
+                """, (extracted_time, booking['id']))
+                updated_count += 1
+            else:
+                not_found_count += 1
+
+        # Commit all updates
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return updated_count, not_found_count
+
+    except Exception as e:
+        st.error(f"Error fixing tee times: {e}")
+        return 0, 0
 
 
 # ========================================
@@ -1070,7 +1179,7 @@ for idx, booking in filtered_df.iterrows():
 
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 st.markdown("#### Export Options")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("Export to Excel", use_container_width=True):
@@ -1101,3 +1210,16 @@ with col3:
     if st.button("Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+
+with col4:
+    if st.button("Fix Tee Times", use_container_width=True):
+        with st.spinner("Extracting tee times from email content..."):
+            updated, not_found = fix_all_tee_times(st.session_state.customer_id)
+            if updated > 0:
+                st.success(f"✅ Updated {updated} booking(s) with extracted tee times!")
+                st.cache_data.clear()
+                st.rerun()
+            elif not_found > 0:
+                st.warning(f"⚠️ Could not extract tee times from {not_found} booking(s)")
+            else:
+                st.info("All bookings already have tee times set")
