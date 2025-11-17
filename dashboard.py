@@ -119,7 +119,7 @@ def get_status_icon(status: str) -> str:
     """Get timeline icon for booking status"""
     status_icons = {
         'Inquiry': '🔵',
-        'Requested': '🟡', 
+        'Requested': '🟡',
         'Confirmed': '🟠',
         'Booked': '✅',
         'Rejected': '❌',
@@ -141,6 +141,100 @@ def get_status_color(status: str) -> str:
         'Pending': 'status-requested',
     }
     return status_map.get(status, 'status-inquiry')
+
+
+def generate_status_progress_bar(current_status: str) -> str:
+    """Generate a linear status progress bar showing booking workflow"""
+
+    # Define the workflow stages
+    stages = [
+        {'name': 'Inquiry', 'icon': '🔵', 'color': '#60a5fa'},
+        {'name': 'Requested', 'icon': '🟡', 'color': '#eab308'},
+        {'name': 'Confirmed', 'icon': '🟠', 'color': '#f97316'},
+        {'name': 'Booked', 'icon': '✅', 'color': '#10b981'}
+    ]
+
+    # Handle special cases
+    if current_status == 'Pending':
+        current_status = 'Inquiry'
+
+    # Check if rejected or cancelled
+    is_rejected = current_status == 'Rejected'
+    is_cancelled = current_status == 'Cancelled'
+
+    if is_rejected or is_cancelled:
+        return f"""
+        <div style='background: #0a0f1e; padding: 1rem; border-radius: 8px; border: 1px solid #1e293b;'>
+            <div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'>
+                <span style='font-size: 1.5rem;'>{'❌' if is_rejected else '⚫'}</span>
+                <span style='color: {'#ef4444' if is_rejected else '#64748b'}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span>
+            </div>
+        </div>
+        """
+
+    # Find current stage index
+    current_index = next((i for i, s in enumerate(stages) if s['name'] == current_status), 0)
+
+    # Generate HTML
+    html = """
+    <div style='background: #0a0f1e; padding: 1.25rem; border-radius: 8px; border: 1px solid #1e293b;'>
+        <div style='display: flex; align-items: center; justify-content: space-between; position: relative;'>
+    """
+
+    # Add connecting line
+    html += """
+        <div style='position: absolute; top: 1rem; left: 2rem; right: 2rem; height: 3px; background: #1e293b; z-index: 1;'></div>
+    """
+
+    # Add progress line (only up to current stage)
+    progress_width = (current_index / (len(stages) - 1)) * 100 if len(stages) > 1 else 0
+    html += f"""
+        <div style='position: absolute; top: 1rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #60a5fa, #10b981); z-index: 2;'></div>
+    """
+
+    # Add stage nodes
+    for i, stage in enumerate(stages):
+        is_active = i <= current_index
+        is_current = i == current_index
+
+        bg_color = stage['color'] if is_active else '#1e293b'
+        text_color = '#f9fafb' if is_active else '#64748b'
+        border_color = stage['color'] if is_current else ('#2d3748' if is_active else '#1e293b')
+
+        html += f"""
+        <div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'>
+            <div style='
+                width: 2rem;
+                height: 2rem;
+                border-radius: 50%;
+                background: {bg_color};
+                border: 3px solid {border_color};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: {('0 0 0 4px rgba(16, 185, 129, 0.2)' if is_current else 'none')};
+                transition: all 0.3s ease;
+            '>
+                <span style='font-size: 0.875rem;'>{stage['icon']}</span>
+            </div>
+            <div style='
+                margin-top: 0.5rem;
+                font-size: 0.75rem;
+                font-weight: {('700' if is_current else '600')};
+                color: {text_color};
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                white-space: nowrap;
+            '>{stage['name']}</div>
+        </div>
+        """
+
+    html += """
+        </div>
+    </div>
+    """
+
+    return html
 
 
 # ========================================
@@ -201,16 +295,35 @@ st.markdown("""
     }
     
     .metric-card {
-        background: #141b2b;
+        background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%);
         padding: 1.75rem;
         border-radius: 12px;
         border: 1px solid #1e293b;
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
-    
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #60a5fa, #10b981);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
     .metric-card:hover {
         border-color: #2d3748;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .metric-card:hover::before {
+        opacity: 1;
     }
     
     .booking-id {
@@ -397,17 +510,35 @@ st.markdown("""
         font-weight: 600 !important;
         font-size: 0.875rem !important;
         color: #cbd5e1 !important;
+        transition: all 0.2s ease !important;
     }
-    
+
     .streamlit-expanderHeader:hover {
         border-color: #2d3748 !important;
+        background: #141b2b !important;
     }
-    
+
     .streamlit-expanderContent {
         background: #0a0f1e !important;
         border: 1px solid #1e293b !important;
         border-top: none !important;
         border-radius: 0 0 8px 8px !important;
+    }
+
+    /* Card Animation */
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .booking-card {
+        animation: slideUp 0.3s ease-out;
     }
     
     .stMultiSelect > div > div {
@@ -588,9 +719,9 @@ def load_bookings_from_db(club_filter):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(row_factory=dict_row)
-        
+
         cursor.execute("""
-            SELECT 
+            SELECT
                 id, booking_id, guest_email, date, tee_time, players, total,
                 status, note, club, timestamp, customer_confirmed_at,
                 updated_at, updated_by, created_at
@@ -598,29 +729,63 @@ def load_bookings_from_db(club_filter):
             WHERE club = %s
             ORDER BY timestamp DESC
         """, (club_filter,))
-        
+
         bookings = cursor.fetchall()
         cursor.close()
         conn.close()
-        
+
         if not bookings:
             return pd.DataFrame(), 'postgresql'
-        
+
         df = pd.DataFrame(bookings)
-        
+
+        # Ensure all datetime columns are properly converted
         for col in ['timestamp', 'customer_confirmed_at', 'updated_at', 'created_at']:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
-        
+
         if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-        
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+        # Ensure tee_time exists and handle None/NaN values
         if 'tee_time' not in df.columns:
-            df['tee_time'] = 'TBD'
-        
+            df['tee_time'] = 'Not Specified'
+        else:
+            df['tee_time'] = df['tee_time'].fillna('Not Specified')
+
+        # Ensure note column exists and handle None/NaN
+        if 'note' not in df.columns:
+            df['note'] = 'No additional information provided'
+        else:
+            df['note'] = df['note'].fillna('No additional information provided')
+
+        # Ensure all required columns have proper defaults
+        if 'status' not in df.columns:
+            df['status'] = 'Inquiry'
+
+        if 'players' not in df.columns:
+            df['players'] = 1
+        else:
+            df['players'] = df['players'].fillna(1)
+
+        if 'total' not in df.columns:
+            df['total'] = 0.0
+        else:
+            df['total'] = df['total'].fillna(0.0)
+
+        if 'guest_email' not in df.columns:
+            df['guest_email'] = 'No email provided'
+        else:
+            df['guest_email'] = df['guest_email'].fillna('No email provided')
+
+        if 'booking_id' not in df.columns:
+            df['booking_id'] = df.index.map(lambda x: f'BOOK-{x:04d}')
+
         return df, 'postgresql'
     except Exception as e:
         st.error(f"❌ Database error: {e}")
+        import traceback
+        st.error(f"Details: {traceback.format_exc()}")
         return pd.DataFrame(), 'error'
 
 
@@ -768,67 +933,92 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ========================================
-# BOOKING CARDS - FIXED VERSION
+# BOOKING CARDS - ENHANCED VERSION
 # ========================================
 for idx, booking in filtered_df.iterrows():
     status_icon = get_status_icon(booking['status'])
     status_class = get_status_color(booking['status'])
-    
+
     tee_time_display = booking.get('tee_time', 'Not Specified')
     if tee_time_display == 'None' or tee_time_display is None or pd.isna(tee_time_display):
         tee_time_display = 'Not Specified'
-    
+
     note_content = booking.get('note', '')
     if note_content is None or pd.isna(note_content):
         note_content = 'No additional information provided'
-    
+
+    # Generate the linear progress bar
+    progress_bar_html = generate_status_progress_bar(booking['status'])
+
     with st.container():
-        # CARD HEADER
+        # CARD HEADER - Improved structure with animation
         st.markdown(f"""
-            <div style='background: #141b2b; border: 1px solid #1e293b; border-radius: 12px 12px 0 0; padding: 1.25rem 1.5rem;'>
-                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
-                    <div class='status-timeline'>
-                        <span class='status-icon'>{status_icon}</span>
-                        <span class='status-badge {status_class}'>{booking['status']}</span>
+            <div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'>
+                <!-- Booking Info Header -->
+                <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'>
+                    <div style='flex: 1;'>
+                        <div class='booking-id' style='margin-bottom: 0.5rem;'>{booking['booking_id']}</div>
+                        <div class='booking-email'>{booking['guest_email']}</div>
                     </div>
                     <div style='text-align: right;'>
                         <div class='timestamp'>RECEIVED</div>
                         <div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div>
                     </div>
                 </div>
-                <div>
-                    <div class='booking-id'>{booking['booking_id']}</div>
-                    <div class='booking-email'>{booking['guest_email']}</div>
+
+                <!-- Linear Status Progress Bar -->
+                <div style='margin-bottom: 1.5rem;'>
+                    {progress_bar_html}
+                </div>
+
+                <!-- Divider -->
+                <div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div>
+        """, unsafe_allow_html=True)
+        
+        # DATA GRID - Inside the same card
+        st.markdown("""
+                <!-- Booking Details Grid -->
+                <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'>
+        """, unsafe_allow_html=True)
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.markdown(f"""
+                    <div>
+                        <div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div>
+                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div>
+                    </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+                    <div>
+                        <div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div>
+                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div>
+                    </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+                    <div>
+                        <div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div>
+                        <div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div>
+                    </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            st.markdown(f"""
+                    <div>
+                        <div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div>
+                        <div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div>
+                    </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("""
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
-        # CARD BODY - STAYS OPEN
-        st.markdown("""
-            <div style='background: #141b2b; border: 1px solid #1e293b; border-top: none; border-radius: 0 0 12px 12px; padding: 1.5rem; margin-bottom: 1rem;'>
-        """, unsafe_allow_html=True)
-        
-        # DATA GRID
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div>", unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div>", unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div>", unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown("<div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div>", unsafe_allow_html=True)
-        
-        # CLOSE CARD BODY
-        st.markdown("</div>", unsafe_allow_html=True)
         
         with st.expander("📄 View Full Details", expanded=False):
             detail_col1, detail_col2 = st.columns([2, 1])
