@@ -149,10 +149,10 @@ def generate_status_progress_bar(current_status: str) -> str:
 
     # Define the workflow stages
     stages = [
-        {'name': 'Inquiry', 'icon': '🔵', 'color': '#60a5fa'},
-        {'name': 'Requested', 'icon': '🟡', 'color': '#eab308'},
-        {'name': 'Confirmed', 'icon': '🟠', 'color': '#f97316'},
-        {'name': 'Booked', 'icon': '✅', 'color': '#10b981'}
+        {'name': 'Inquiry', 'color': '#60a5fa'},
+        {'name': 'Requested', 'color': '#eab308'},
+        {'name': 'Confirmed', 'color': '#f97316'},
+        {'name': 'Booked', 'color': '#10b981'}
     ]
 
     # Handle special cases
@@ -164,11 +164,12 @@ def generate_status_progress_bar(current_status: str) -> str:
     is_cancelled = current_status == 'Cancelled'
 
     if is_rejected or is_cancelled:
+        status_color = '#ef4444' if is_rejected else '#64748b'
         return f"""
         <div style='background: #0a0f1e; padding: 1rem; border-radius: 8px; border: 1px solid #1e293b;'>
             <div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'>
-                <span style='font-size: 1.5rem;'>{'❌' if is_rejected else '⚫'}</span>
-                <span style='color: {'#ef4444' if is_rejected else '#64748b'}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span>
+                <div style='width: 12px; height: 12px; border-radius: 50%; background: {status_color};'></div>
+                <span style='color: {status_color}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span>
             </div>
         </div>
         """
@@ -205,22 +206,18 @@ def generate_status_progress_bar(current_status: str) -> str:
         html += f"""
         <div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'>
             <div style='
-                width: 2rem;
-                height: 2rem;
+                width: 1.5rem;
+                height: 1.5rem;
                 border-radius: 50%;
                 background: {bg_color};
                 border: 3px solid {border_color};
-                display: flex;
-                align-items: center;
-                justify-content: center;
                 box-shadow: {('0 0 0 4px rgba(16, 185, 129, 0.2)' if is_current else 'none')};
                 transition: all 0.3s ease;
             '>
-                <span style='font-size: 0.875rem;'>{stage['icon']}</span>
             </div>
             <div style='
                 margin-top: 0.5rem;
-                font-size: 0.75rem;
+                font-size: 0.7rem;
                 font-weight: {('700' if is_current else '600')};
                 color: {text_color};
                 text-transform: uppercase;
@@ -791,20 +788,26 @@ def load_bookings_from_db(club_filter):
 
 
 def update_booking_status(booking_id: str, new_status: str, updated_by: str):
-    """Update booking status in database"""
+    """Update booking status in database and return True to trigger filter adjustment"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("""
             UPDATE bookings
             SET status = %s, updated_at = NOW(), updated_by = %s
             WHERE booking_id = %s;
         """, (new_status, updated_by, booking_id))
-        
+
         conn.commit()
         cursor.close()
         conn.close()
+
+        # Store the new status in session state to auto-include in filter
+        if 'auto_include_status' not in st.session_state:
+            st.session_state.auto_include_status = set()
+        st.session_state.auto_include_status.add(new_status)
+
         return True
     except Exception as e:
         st.error(f"Error updating status: {e}")
@@ -823,23 +826,31 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown(f"<div class='user-badge'>👤 {st.session_state.full_name}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='club-badge'>🏌️ {st.session_state.customer_id.title()}</div>", unsafe_allow_html=True)
-    
+    st.markdown(f"<div class='user-badge'>{st.session_state.full_name}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='club-badge'>{st.session_state.customer_id.title()}</div>", unsafe_allow_html=True)
+
     st.markdown("<div style='height: 1px; background: #1e293b; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
-    
-    if st.button("🚪 Logout", use_container_width=True):
+
+    if st.button("Logout", use_container_width=True):
         logout()
         st.rerun()
     
     st.markdown("<div style='height: 1px; background: #1e293b; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
-    
-    st.markdown("#### 📊 Filters")
-    
+
+    st.markdown("#### Filters")
+
+    # Initialize auto_include_status if not present
+    if 'auto_include_status' not in st.session_state:
+        st.session_state.auto_include_status = set()
+
+    # Merge default statuses with auto-included ones
+    default_statuses = ["Inquiry", "Requested", "Confirmed", "Booked", "Pending"]
+    all_default_statuses = list(set(default_statuses) | st.session_state.auto_include_status)
+
     status_filter = st.multiselect(
         "Status",
         ["Inquiry", "Requested", "Confirmed", "Booked", "Rejected", "Cancelled", "Pending"],
-        default=["Inquiry", "Requested", "Confirmed", "Booked", "Pending"]
+        default=all_default_statuses
     )
     
     date_range = st.date_input(
@@ -855,7 +866,7 @@ st.markdown("""
 df, source = load_bookings_from_db(st.session_state.customer_id)
 
 if df.empty:
-    st.info("📭 No bookings found")
+    st.info("No bookings found")
     st.stop()
 
 filtered_df = df.copy()
@@ -876,7 +887,7 @@ with col1:
     st.markdown(f"""
         <div class='metric-card'>
             <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='font-size: 1.75rem; opacity: 0.9;'>🔵</div>
+                <div style='width: 8px; height: 8px; border-radius: 50%; background: #60a5fa;'></div>
                 <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Inquiry</div>
             </div>
             <div style='font-size: 2rem; font-weight: 700; color: #60a5fa; line-height: 1;'>{inquiry_count}</div>
@@ -888,7 +899,7 @@ with col2:
     st.markdown(f"""
         <div class='metric-card'>
             <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='font-size: 1.75rem; opacity: 0.9;'>🟡</div>
+                <div style='width: 8px; height: 8px; border-radius: 50%; background: #eab308;'></div>
                 <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Requested</div>
             </div>
             <div style='font-size: 2rem; font-weight: 700; color: #eab308; line-height: 1;'>{requested_count}</div>
@@ -900,7 +911,7 @@ with col3:
     st.markdown(f"""
         <div class='metric-card'>
             <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='font-size: 1.75rem; opacity: 0.9;'>🟠</div>
+                <div style='width: 8px; height: 8px; border-radius: 50%; background: #f97316;'></div>
                 <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Confirmed</div>
             </div>
             <div style='font-size: 2rem; font-weight: 700; color: #f97316; line-height: 1;'>{confirmed_count}</div>
@@ -912,7 +923,7 @@ with col4:
     st.markdown(f"""
         <div class='metric-card'>
             <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;'>
-                <div style='font-size: 1.75rem; opacity: 0.9;'>✅</div>
+                <div style='width: 8px; height: 8px; border-radius: 50%; background: #10b981;'></div>
                 <div style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;'>Booked</div>
             </div>
             <div style='font-size: 2rem; font-weight: 700; color: #10b981; line-height: 1;'>{booked_count}</div>
@@ -954,10 +965,10 @@ for idx, booking in filtered_df.iterrows():
         current_status = 'Inquiry'
 
     stages = [
-        {'name': 'Inquiry', 'icon': '🔵', 'color': '#60a5fa'},
-        {'name': 'Requested', 'icon': '🟡', 'color': '#eab308'},
-        {'name': 'Confirmed', 'icon': '🟠', 'color': '#f97316'},
-        {'name': 'Booked', 'icon': '✅', 'color': '#10b981'}
+        {'name': 'Inquiry', 'color': '#60a5fa'},
+        {'name': 'Requested', 'color': '#eab308'},
+        {'name': 'Confirmed', 'color': '#f97316'},
+        {'name': 'Booked', 'color': '#10b981'}
     ]
 
     is_rejected = current_status == 'Rejected'
@@ -965,10 +976,14 @@ for idx, booking in filtered_df.iterrows():
     current_index = next((i for i, s in enumerate(stages) if s['name'] == current_status), 0)
     progress_width = (current_index / (len(stages) - 1)) * 100 if len(stages) > 1 else 0
 
+    # Format requested time
+    requested_time = booking['timestamp'].strftime('%b %d • %I:%M %p')
+
     with st.container():
         # Build progress bar HTML inline
         if is_rejected or is_cancelled:
-            progress_html = f"<div style='background: #0a0f1e; padding: 1rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'><span style='font-size: 1.5rem;'>{'❌' if is_rejected else '⚫'}</span><span style='color: {'#ef4444' if is_rejected else '#64748b'}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span></div></div>"
+            status_color = '#ef4444' if is_rejected else '#64748b'
+            progress_html = f"<div style='background: #0a0f1e; padding: 1rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'><div style='width: 12px; height: 12px; border-radius: 50%; background: {status_color};'></div><span style='color: {status_color}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span></div></div>"
         else:
             # Build stage nodes HTML
             stages_html = ""
@@ -981,23 +996,23 @@ for idx, booking in filtered_df.iterrows():
                 box_shadow = '0 0 0 4px rgba(16, 185, 129, 0.2)' if is_current else 'none'
                 font_weight = '700' if is_current else '600'
 
-                stages_html += f"<div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'><div style='width: 2rem; height: 2rem; border-radius: 50%; background: {bg_color}; border: 3px solid {border_color}; display: flex; align-items: center; justify-content: center; box-shadow: {box_shadow}; transition: all 0.3s ease;'><span style='font-size: 0.875rem;'>{stage['icon']}</span></div><div style='margin-top: 0.5rem; font-size: 0.75rem; font-weight: {font_weight}; color: {text_color}; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;'>{stage['name']}</div></div>"
+                stages_html += f"<div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'><div style='width: 1.5rem; height: 1.5rem; border-radius: 50%; background: {bg_color}; border: 3px solid {border_color}; box-shadow: {box_shadow}; transition: all 0.3s ease;'></div><div style='margin-top: 0.5rem; font-size: 0.7rem; font-weight: {font_weight}; color: {text_color}; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;'>{stage['name']}</div></div>"
 
-            progress_html = f"<div style='background: #0a0f1e; padding: 1.25rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 1rem; left: 2rem; right: 2rem; height: 3px; background: #1e293b; z-index: 1;'></div><div style='position: absolute; top: 1rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #60a5fa, #10b981); z-index: 2;'></div>{stages_html}</div></div>"
+            progress_html = f"<div style='background: #0a0f1e; padding: 1.25rem; border-radius: 8px; border: 1px solid #1e293b;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #1e293b; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #60a5fa, #10b981); z-index: 2;'></div>{stages_html}</div></div>"
 
         # Build complete card HTML including progress bar and details
-        card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>RECEIVED</div><div class='timestamp-value'>{booking['timestamp'].strftime('%b %d, %Y • %I:%M %p')}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>📅 TEE TIME DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>⏰ TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>👥 PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>💰 TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div></div></div></div>"""
+        card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #141b2b 0%, #1a2332 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #1e293b, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f9fafb;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #10b981;'>${booking['total']:,.2f}</div></div></div></div>"""
 
         # Render the complete card
         st.markdown(card_html, unsafe_allow_html=True)
         
-        with st.expander("📄 View Full Details", expanded=False):
+        with st.expander("View Full Details", expanded=False):
             detail_col1, detail_col2 = st.columns([2, 1])
-            
+
             with detail_col1:
                 st.markdown("""
                     <div style='background: #0f1419; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 1px solid #1e293b; border-bottom: none; margin-bottom: 0;'>
-                        <div class='data-label' style='margin: 0;'>📧 ORIGINAL REQUEST</div>
+                        <div class='data-label' style='margin: 0;'>ORIGINAL REQUEST</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
@@ -1020,51 +1035,51 @@ for idx, booking in filtered_df.iterrows():
                     """, unsafe_allow_html=True)
             
             with detail_col2:
-                st.markdown("### ⚡ Quick Actions")
-                
+                st.markdown("### Quick Actions")
+
                 current_status = booking['status']
-                
+
                 if current_status in ['Inquiry', 'Pending']:
-                    if st.button("🟡 Mark as Requested", key=f"req_{booking['booking_id']}", use_container_width=True):
+                    if st.button("Mark as Requested", key=f"req_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
-                            st.success("✅ Updated")
+                            st.success("Updated")
                             st.cache_data.clear()
                             st.rerun()
-                
+
                 if current_status == 'Requested':
-                    if st.button("🟠 Mark as Confirmed", key=f"conf_{booking['booking_id']}", use_container_width=True):
+                    if st.button("Mark as Confirmed", key=f"conf_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                            st.success("✅ Updated")
+                            st.success("Updated")
                             st.cache_data.clear()
                             st.rerun()
-                
+
                 if current_status == 'Confirmed':
-                    if st.button("✅ Mark as Booked", key=f"book_{booking['booking_id']}", use_container_width=True):
+                    if st.button("Mark as Booked", key=f"book_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
-                            st.success("✅ Updated")
+                            st.success("Updated")
                             st.cache_data.clear()
                             st.rerun()
-                
+
                 if current_status not in ['Rejected', 'Cancelled', 'Booked']:
                     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
-                    if st.button("❌ Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
+                    if st.button("Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
                         if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
                             st.warning("Rejected")
                             st.cache_data.clear()
                             st.rerun()
 
 st.markdown("<div style='height: 1px; background: #1e293b; margin: 2rem 0;'></div>", unsafe_allow_html=True)
-st.markdown("#### 📤 Export Options")
+st.markdown("#### Export Options")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("📊 Export to Excel", use_container_width=True):
+    if st.button("Export to Excel", use_container_width=True):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             filtered_df.to_excel(writer, index=False, sheet_name='Bookings')
-        
+
         st.download_button(
-            label="⬇️ Download Excel",
+            label="Download Excel",
             data=output.getvalue(),
             file_name=f"bookings_{datetime.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1072,10 +1087,10 @@ with col1:
         )
 
 with col2:
-    if st.button("📄 Export to CSV", use_container_width=True):
+    if st.button("Export to CSV", use_container_width=True):
         csv = filtered_df.to_csv(index=False)
         st.download_button(
-            label="⬇️ Download CSV",
+            label="Download CSV",
             data=csv,
             file_name=f"bookings_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
@@ -1083,6 +1098,6 @@ with col2:
         )
 
 with col3:
-    if st.button("🔄 Refresh Data", use_container_width=True):
+    if st.button("Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
