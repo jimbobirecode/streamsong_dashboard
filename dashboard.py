@@ -704,7 +704,7 @@ if not st.session_state.authenticated:
     # Center the logo
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image("assets/ssr-logo-notag.png", use_container_width=True)
+        st.image("assets/ssr-logo-notag.png", use_column_width=True)
 
     st.markdown("""
         <div class="login-container" style="margin-top: -50px;">
