@@ -753,7 +753,7 @@ def load_bookings_from_db(club_filter):
             SELECT
                 id, booking_id, guest_email, date, tee_time, players, total,
                 status, note, club, timestamp, customer_confirmed_at,
-                updated_at, updated_by, created_at
+                updated_at, updated_by, created_at, hotel_required
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
