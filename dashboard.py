@@ -192,9 +192,9 @@ def generate_status_progress_bar(current_status: str) -> str:
     is_cancelled = current_status == 'Cancelled'
 
     if is_rejected or is_cancelled:
-        status_color = '#a0653f' if is_rejected else '#999999'
+        status_color = '#a0653f' if is_rejected else '#666666'
         return f"""
-        <div style='background: #ffffff; padding: 1rem; border-radius: 8px; border: 1px solid #d6d3cc;'>
+        <div style='background: #3d5266; padding: 1rem; border-radius: 8px; border: 2px solid #6b7c3f;'>
             <div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'>
                 <div style='width: 12px; height: 12px; border-radius: 50%; background: {status_color};'></div>
                 <span style='color: {status_color}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span>
@@ -207,13 +207,13 @@ def generate_status_progress_bar(current_status: str) -> str:
 
     # Generate HTML
     html = """
-    <div style='background: #ffffff; padding: 1.25rem; border-radius: 8px; border: 1px solid #d6d3cc;'>
+    <div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'>
         <div style='display: flex; align-items: center; justify-content: space-between; position: relative;'>
     """
 
     # Add connecting line
     html += """
-        <div style='position: absolute; top: 1rem; left: 2rem; right: 2rem; height: 3px; background: #e8e3d9; z-index: 1;'></div>
+        <div style='position: absolute; top: 1rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div>
     """
 
     # Add progress line (only up to current stage)
@@ -227,9 +227,9 @@ def generate_status_progress_bar(current_status: str) -> str:
         is_active = i <= current_index
         is_current = i == current_index
 
-        bg_color = stage['color'] if is_active else '#e8e3d9'
-        text_color = '#333333' if is_active else '#999999'
-        border_color = stage['color'] if is_current else ('#d6d3cc' if is_active else '#e8e3d9')
+        bg_color = stage['color'] if is_active else '#4a6278'
+        text_color = '#f7f5f2' if is_active else '#999999'
+        border_color = stage['color'] if is_current else ('#6b7c3f' if is_active else '#4a6278')
 
         html += f"""
         <div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'>
@@ -311,20 +311,20 @@ st.set_page_config(
 st.markdown("""
     <style>
     .main {
-        background: #f0ece5;
+        background: #2a3a4a;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     }
 
     [data-testid="stSidebar"] {
         background: #3d5266;
-        border-right: 1px solid #6b7c3f;
+        border-right: 2px solid #6b7c3f;
     }
-    
+
     .metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f7f5f2 100%);
+        background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%);
         padding: 1.75rem;
         border-radius: 12px;
-        border: 1px solid #d6d3cc;
+        border: 2px solid #6b7c3f;
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
@@ -344,7 +344,7 @@ st.markdown("""
 
     .metric-card:hover {
         border-color: #a0653f;
-        box-shadow: 0 8px 24px rgba(61, 82, 102, 0.2);
+        box-shadow: 0 8px 24px rgba(107, 124, 63, 0.5);
         transform: translateY(-2px);
     }
 
@@ -355,20 +355,20 @@ st.markdown("""
     .booking-id {
         font-size: 1rem;
         font-weight: 600;
-        color: #333333;
+        color: #f7f5f2;
         margin: 0;
         font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
         letter-spacing: 0.5px;
     }
 
     .booking-email {
-        color: #666666;
+        color: #d4b896;
         font-size: 0.875rem;
         margin: 0.375rem 0 0 0;
     }
 
     .timestamp {
-        color: #888888;
+        color: #d4b896;
         font-size: 0.8125rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -376,17 +376,17 @@ st.markdown("""
     }
 
     .timestamp-value {
-        color: #5a5a5a;
+        color: #f7f5f2;
         font-size: 0.875rem;
         font-weight: 600;
         margin-top: 0.25rem;
     }
     
     .stTextArea textarea {
-        background: #ffffff !important;
-        border: 1px solid #d6d3cc !important;
+        background: #3d5266 !important;
+        border: 2px solid #6b7c3f !important;
         border-radius: 0 0 8px 8px !important;
-        color: #333333 !important;
+        color: #f7f5f2 !important;
         font-family: 'SF Mono', 'Monaco', 'Consolas', monospace !important;
         font-size: 0.8125rem !important;
         line-height: 1.7 !important;
@@ -394,20 +394,20 @@ st.markdown("""
     }
 
     .stTextArea textarea:disabled {
-        background: #f7f5f2 !important;
-        color: #666666 !important;
+        background: #4a6278 !important;
+        color: #d4b896 !important;
         opacity: 1 !important;
-        -webkit-text-fill-color: #666666 !important;
+        -webkit-text-fill-color: #d4b896 !important;
     }
-    
+
     .status-timeline {
         display: inline-flex;
         align-items: center;
         gap: 0.625rem;
-        background: #ffffff;
+        background: #3d5266;
         padding: 0.5rem 1rem;
         border-radius: 8px;
-        border: 1px solid #d6d3cc;
+        border: 2px solid #6b7c3f;
     }
     
     .status-icon {
@@ -427,39 +427,39 @@ st.markdown("""
     }
 
     .status-inquiry {
-        background: rgba(135, 167, 179, 0.1);
-        color: #3d5266;
-        border: 1px solid rgba(61, 82, 102, 0.3);
+        background: #87a7b3;
+        color: #ffffff;
+        border: 2px solid #87a7b3;
     }
 
     .status-requested {
-        background: rgba(204, 136, 85, 0.1);
-        color: #a0653f;
-        border: 1px solid rgba(160, 101, 63, 0.3);
+        background: #cc8855;
+        color: #ffffff;
+        border: 2px solid #cc8855;
     }
 
     .status-confirmed {
-        background: rgba(139, 148, 86, 0.1);
-        color: #6b7c3f;
-        border: 1px solid rgba(107, 124, 63, 0.3);
+        background: #8b9456;
+        color: #ffffff;
+        border: 2px solid #8b9456;
     }
 
     .status-booked {
-        background: rgba(107, 124, 63, 0.15);
-        color: #6b7c3f;
-        border: 1px solid rgba(107, 124, 63, 0.4);
+        background: #6b7c3f;
+        color: #ffffff;
+        border: 2px solid #6b7c3f;
     }
 
     .status-rejected {
-        background: rgba(160, 101, 63, 0.1);
-        color: #a0653f;
-        border: 1px solid rgba(160, 101, 63, 0.3);
+        background: #a0653f;
+        color: #ffffff;
+        border: 2px solid #a0653f;
     }
 
     .status-cancelled {
-        background: rgba(153, 153, 153, 0.1);
-        color: #666666;
-        border: 1px solid rgba(102, 102, 102, 0.3);
+        background: #666666;
+        color: #ffffff;
+        border: 2px solid #666666;
     }
     
     .stButton > button {
@@ -487,19 +487,19 @@ st.markdown("""
     }
     
     h1 {
-        color: #333333 !important;
+        color: #f7f5f2 !important;
         font-weight: 700 !important;
         font-size: 1.875rem !important;
         letter-spacing: -0.5px !important;
     }
 
     h2, h3, h4, h5, h6 {
-        color: #3d5266 !important;
+        color: #f7f5f2 !important;
         font-weight: 600 !important;
     }
 
     p, span, div, label {
-        color: #666666 !important;
+        color: #d4b896 !important;
     }
     
     .user-badge {
@@ -527,7 +527,7 @@ st.markdown("""
     }
     
     .data-label {
-        color: #888888;
+        color: #d4b896;
         font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -536,23 +536,23 @@ st.markdown("""
     }
 
     .streamlit-expanderHeader {
-        background: #f7f5f2 !important;
+        background: #3d5266 !important;
         border-radius: 8px !important;
-        border: 1px solid #d6d3cc !important;
+        border: 2px solid #6b7c3f !important;
         font-weight: 600 !important;
         font-size: 0.875rem !important;
-        color: #3d5266 !important;
+        color: #f7f5f2 !important;
         transition: all 0.2s ease !important;
     }
 
     .streamlit-expanderHeader:hover {
         border-color: #a0653f !important;
-        background: #e8e3d9 !important;
+        background: #4a6278 !important;
     }
 
     .streamlit-expanderContent {
-        background: #ffffff !important;
-        border: 1px solid #d6d3cc !important;
+        background: #3d5266 !important;
+        border: 2px solid #6b7c3f !important;
         border-top: none !important;
         border-radius: 0 0 8px 8px !important;
     }
@@ -574,15 +574,17 @@ st.markdown("""
     }
     
     .stMultiSelect > div > div {
-        background: #ffffff !important;
-        border: 1px solid #d6d3cc !important;
+        background: #3d5266 !important;
+        border: 2px solid #6b7c3f !important;
         border-radius: 6px !important;
+        color: #f7f5f2 !important;
     }
 
     .stDateInput > div > div {
-        background: #ffffff !important;
-        border: 1px solid #d6d3cc !important;
+        background: #3d5266 !important;
+        border: 2px solid #6b7c3f !important;
         border-radius: 6px !important;
+        color: #f7f5f2 !important;
     }
     
     #MainMenu {visibility: hidden;} 
@@ -1067,9 +1069,9 @@ st.markdown("""
 # Show active filter indicator
 if st.session_state.clicked_status_filter:
     st.markdown(f"""
-        <div style='background: rgba(107, 124, 63, 0.1); border: 1px solid rgba(107, 124, 63, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;'>
+        <div style='background: #3d5266; border: 2px solid #6b7c3f; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;'>
             <div style='display: flex; align-items: center; gap: 0.5rem;'>
-                <span style='color: #6b7c3f; font-weight: 600;'>Filtering by: {st.session_state.clicked_status_filter}</span>
+                <span style='color: #6b7c3f; font-weight: 600; font-size: 1rem;'>Filtering by: {st.session_state.clicked_status_filter}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -1115,7 +1117,7 @@ with col1:
         st.session_state.clicked_status_filter = "Inquiry"
         st.cache_data.clear()
         st.rerun()
-    st.markdown(f"<div style='text-align: center; color: #888888; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {inquiry_count}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: #d4b896; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {inquiry_count}</div>", unsafe_allow_html=True)
 
 with col2:
     requested_count = len(filtered_df[filtered_df['status'] == 'Requested'])
@@ -1123,7 +1125,7 @@ with col2:
         st.session_state.clicked_status_filter = "Requested"
         st.cache_data.clear()
         st.rerun()
-    st.markdown(f"<div style='text-align: center; color: #888888; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {requested_count}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: #d4b896; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {requested_count}</div>", unsafe_allow_html=True)
 
 with col3:
     confirmed_count = len(filtered_df[filtered_df['status'] == 'Confirmed'])
@@ -1131,7 +1133,7 @@ with col3:
         st.session_state.clicked_status_filter = "Confirmed"
         st.cache_data.clear()
         st.rerun()
-    st.markdown(f"<div style='text-align: center; color: #888888; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {confirmed_count}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: #d4b896; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {confirmed_count}</div>", unsafe_allow_html=True)
 
 with col4:
     booked_count = len(filtered_df[filtered_df['status'] == 'Booked'])
@@ -1139,9 +1141,9 @@ with col4:
         st.session_state.clicked_status_filter = "Booked"
         st.cache_data.clear()
         st.rerun()
-    st.markdown(f"<div style='text-align: center; color: #888888; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {booked_count}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: #d4b896; font-size: 0.75rem; margin-top: -0.5rem;'>Showing: {booked_count}</div>", unsafe_allow_html=True)
 
-st.markdown("<div style='height: 1px; background: #d6d3cc; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
 # Format date range string
 if date_range:
@@ -1199,26 +1201,26 @@ for idx, booking in filtered_df.iterrows():
     with st.container():
         # Build progress bar HTML inline
         if is_rejected or is_cancelled:
-            status_color = '#a0653f' if is_rejected else '#999999'
-            progress_html = f"<div style='background: #ffffff; padding: 1rem; border-radius: 8px; border: 1px solid #d6d3cc;'><div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'><div style='width: 12px; height: 12px; border-radius: 50%; background: {status_color};'></div><span style='color: {status_color}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span></div></div>"
+            status_color = '#a0653f' if is_rejected else '#666666'
+            progress_html = f"<div style='background: #3d5266; padding: 1rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: center; gap: 0.75rem;'><div style='width: 12px; height: 12px; border-radius: 50%; background: {status_color};'></div><span style='color: {status_color}; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;'>{current_status}</span></div></div>"
         else:
             # Build stage nodes HTML
             stages_html = ""
             for i, stage in enumerate(stages):
                 is_active = i <= current_index
                 is_current = i == current_index
-                bg_color = stage['color'] if is_active else '#e8e3d9'
-                text_color = '#333333' if is_active else '#999999'
-                border_color = stage['color'] if is_current else ('#d6d3cc' if is_active else '#e8e3d9')
-                box_shadow = '0 0 0 4px rgba(107, 124, 63, 0.2)' if is_current else 'none'
+                bg_color = stage['color'] if is_active else '#4a6278'
+                text_color = '#f7f5f2' if is_active else '#999999'
+                border_color = stage['color'] if is_current else ('#6b7c3f' if is_active else '#4a6278')
+                box_shadow = '0 0 0 4px rgba(107, 124, 63, 0.4)' if is_current else 'none'
                 font_weight = '700' if is_current else '600'
 
                 stages_html += f"<div style='display: flex; flex-direction: column; align-items: center; z-index: 3; position: relative;'><div style='width: 1.5rem; height: 1.5rem; border-radius: 50%; background: {bg_color}; border: 3px solid {border_color}; box-shadow: {box_shadow}; transition: all 0.3s ease;'></div><div style='margin-top: 0.5rem; font-size: 0.7rem; font-weight: {font_weight}; color: {text_color}; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;'>{stage['name']}</div></div>"
 
-            progress_html = f"<div style='background: #ffffff; padding: 1.25rem; border-radius: 8px; border: 1px solid #d6d3cc;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #e8e3d9; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
+            progress_html = f"<div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
 
         # Build complete card HTML including progress bar and details
-        card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #ffffff 0%, #f7f5f2 100%); border: 1px solid #d6d3cc; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(61, 82, 102, 0.1); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #d6d3cc, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #333333;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #333333;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #333333;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div></div>"""
+        card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div></div>"""
 
         # Render the complete card
         st.markdown(card_html, unsafe_allow_html=True)
@@ -1263,7 +1265,7 @@ for idx, booking in filtered_df.iterrows():
 
             with detail_col1:
                 st.markdown("""
-                    <div style='background: #f7f5f2; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 1px solid #d6d3cc; border-bottom: none; margin-bottom: 0;'>
+                    <div style='background: #3d5266; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 2px solid #6b7c3f; border-bottom: none; margin-bottom: 0;'>
                         <div class='data-label' style='margin: 0;'>BOOKING NOTES</div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -1288,10 +1290,10 @@ for idx, booking in filtered_df.iterrows():
                 
                 if booking.get('updated_by') and not pd.isna(booking.get('updated_by')):
                     st.markdown(f"""
-                        <div style='margin-top: 1.5rem; padding: 1rem; background: #f7f5f2; border-radius: 8px; border: 1px solid #d6d3cc;'>
+                        <div style='margin-top: 1.5rem; padding: 1rem; background: #3d5266; border-radius: 8px; border: 2px solid #6b7c3f;'>
                             <div class='data-label'>LAST UPDATED</div>
-                            <div style='color: #333333; font-size: 0.875rem; margin-top: 0.5rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
-                            <div style='color: #888888; font-size: 0.8125rem; margin-top: 0.25rem;'>by {booking['updated_by']}</div>
+                            <div style='color: #f7f5f2; font-size: 0.875rem; margin-top: 0.5rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
+                            <div style='color: #d4b896; font-size: 0.8125rem; margin-top: 0.25rem;'>by {booking['updated_by']}</div>
                         </div>
                     """, unsafe_allow_html=True)
             
@@ -1330,8 +1332,8 @@ for idx, booking in filtered_df.iterrows():
                             st.rerun()
 
                 # Delete booking button (with confirmation)
-                st.markdown("<div style='margin-top: 1.5rem; border-top: 1px solid #d6d3cc; padding-top: 1rem;'></div>", unsafe_allow_html=True)
-                st.markdown("<div style='color: #a0653f; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;'>Danger Zone</div>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: 1.5rem; border-top: 2px solid #6b7c3f; padding-top: 1rem;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #cc8855; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;'>Danger Zone</div>", unsafe_allow_html=True)
 
                 # Initialize session state for delete confirmation
                 if f"confirm_delete_{booking['booking_id']}" not in st.session_state:
@@ -1356,7 +1358,7 @@ for idx, booking in filtered_df.iterrows():
                             st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
                             st.rerun()
 
-st.markdown("<div style='height: 1px; background: #d6d3cc; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 st.markdown("#### Export Options")
 col1, col2, col3, col4 = st.columns(4)
 
