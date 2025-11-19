@@ -753,7 +753,8 @@ def load_bookings_from_db(club_filter):
             SELECT
                 id, booking_id, guest_email, date, tee_time, players, total,
                 status, note, club, timestamp, customer_confirmed_at,
-                updated_at, updated_by, created_at, hotel_required
+                updated_at, updated_by, created_at, hotel_required,
+                hotel_checkin, hotel_checkout
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
@@ -823,6 +824,13 @@ def load_bookings_from_db(club_filter):
             df['hotel_required'] = False
         else:
             df['hotel_required'] = df['hotel_required'].fillna(False)
+
+        # Ensure hotel date columns exist
+        for col in ['hotel_checkin', 'hotel_checkout']:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            else:
+                df[col] = None
 
         return df, 'postgresql'
     except Exception as e:
@@ -1220,92 +1228,207 @@ with tab1:
     
                 progress_html = f"<div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
     
-            # Hotel requirement badge
+            # Hotel requirement badge and dates
             hotel_required = booking.get('hotel_required', False)
             hotel_badge = ""
+            hotel_dates_html = ""
+
             if hotel_required:
                 hotel_badge = "<div style='display: inline-block; background: #cc8855; color: #ffffff; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 0.5rem;'>Hotel Required</div>"
 
+                # Format hotel dates if available
+                hotel_checkin = booking.get('hotel_checkin')
+                hotel_checkout = booking.get('hotel_checkout')
+
+                if hotel_checkin and not pd.isna(hotel_checkin):
+                    checkin_str = hotel_checkin.strftime('%b %d, %Y')
+                else:
+                    checkin_str = "Not Set"
+
+                if hotel_checkout and not pd.isna(hotel_checkout):
+                    checkout_str = hotel_checkout.strftime('%b %d, %Y')
+                else:
+                    checkout_str = "Not Set"
+
+                hotel_dates_html = f"""
+                <div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'>
+                    <div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>Hotel Accommodation</div>
+                    <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;'>
+                        <div>
+                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div>
+                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div>
+                        </div>
+                        <div>
+                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div>
+                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div>
+                        </div>
+                    </div>
+                </div>
+                """
+
             # Build complete card HTML including progress bar and details
-            card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>HOTEL</div><div style='font-size: 1rem; font-weight: 600; color: {'#cc8855' if hotel_required else '#999999'};'>{'Required' if hotel_required else 'Not Required'}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div></div>"""
-    
+            card_html = f"""<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>{hotel_dates_html}</div>"""
+
             # Render the complete card
             st.markdown(card_html, unsafe_allow_html=True)
     
-            # Quick status change buttons (above the expander)
+            # Status navigation buttons (below the card)
             if not is_rejected and not is_cancelled:
-                st.markdown("<div style='margin: -0.5rem 0 1rem 0;'>", unsafe_allow_html=True)
-                status_col1, status_col2, status_col3, status_col4, status_col5 = st.columns([1, 1, 1, 1, 2])
-    
-                with status_col1:
-                    if booking['status'] in ['Inquiry', 'Pending']:
-                        if st.button("→ Requested", key=f"quick_req_{booking['booking_id']}", use_container_width=True, help="Move to Requested"):
+                st.markdown("<div style='margin-top: 0.5rem;'>", unsafe_allow_html=True)
+
+                # Create button layout based on current status
+                current_status = booking['status']
+
+                if current_status in ['Inquiry', 'Pending']:
+                    # Only forward option from Inquiry
+                    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 3])
+                    with btn_col1:
+                        if st.button("→ Requested", key=f"nav_req_{booking['booking_id']}", use_container_width=True):
                             if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
                                 st.cache_data.clear()
                                 st.rerun()
-    
-                with status_col2:
-                    if booking['status'] == 'Requested':
-                        if st.button("→ Confirmed", key=f"quick_conf_{booking['booking_id']}", use_container_width=True, help="Move to Confirmed"):
-                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                                st.cache_data.clear()
-                                st.rerun()
-    
-                with status_col3:
-                    if booking['status'] == 'Confirmed':
-                        if st.button("→ Booked", key=f"quick_book_{booking['booking_id']}", use_container_width=True, help="Move to Booked"):
-                            if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
-                                st.cache_data.clear()
-                                st.rerun()
-    
-                with status_col4:
-                    if booking['status'] not in ['Rejected', 'Cancelled', 'Booked']:
-                        if st.button("✕ Reject", key=f"quick_rej_{booking['booking_id']}", use_container_width=True, help="Reject this booking"):
+                    with btn_col2:
+                        if st.button("✕ Reject", key=f"nav_rej_inq_{booking['booking_id']}", use_container_width=True):
                             if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
                                 st.cache_data.clear()
                                 st.rerun()
-    
+
+                elif current_status == 'Requested':
+                    # Both backward and forward options
+                    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1, 1, 1, 2])
+                    with btn_col1:
+                        if st.button("← Inquiry", key=f"nav_back_inq_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Inquiry', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+                    with btn_col2:
+                        if st.button("→ Confirmed", key=f"nav_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+                    with btn_col3:
+                        if st.button("✕ Reject", key=f"nav_rej_req_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+
+                elif current_status == 'Confirmed':
+                    # Both backward and forward options
+                    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1, 1, 1, 2])
+                    with btn_col1:
+                        if st.button("← Requested", key=f"nav_back_req_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+                    with btn_col2:
+                        if st.button("→ Booked", key=f"nav_book_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+                    with btn_col3:
+                        if st.button("✕ Reject", key=f"nav_rej_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+
+                elif current_status == 'Booked':
+                    # Only backward option from Booked
+                    btn_col1, btn_col2 = st.columns([1, 4])
+                    with btn_col1:
+                        if st.button("← Confirmed", key=f"nav_back_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                                st.cache_data.clear()
+                                st.rerun()
+
                 st.markdown("</div>", unsafe_allow_html=True)
     
             with st.expander("View Full Details", expanded=False):
-                # Quick Actions at the top
-                st.markdown("### Quick Actions")
-    
+                # Status Change Actions
+                st.markdown("### Status Management")
+
                 current_status = booking['status']
-                action_cols = st.columns(5)
-    
-                with action_cols[0]:
-                    if current_status in ['Inquiry', 'Pending']:
-                        if st.button("→ Requested", key=f"req_{booking['booking_id']}", use_container_width=True):
+
+                if current_status in ['Inquiry', 'Pending']:
+                    exp_col1, exp_col2 = st.columns(2)
+                    with exp_col1:
+                        if st.button("→ Move to Requested", key=f"exp_req_{booking['booking_id']}", use_container_width=True):
                             if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
-                                st.success("Updated")
+                                st.success("Moved to Requested")
                                 st.cache_data.clear()
                                 st.rerun()
-    
-                with action_cols[1]:
-                    if current_status == 'Requested':
-                        if st.button("→ Confirmed", key=f"conf_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                                st.success("Updated")
-                                st.cache_data.clear()
-                                st.rerun()
-    
-                with action_cols[2]:
-                    if current_status == 'Confirmed':
-                        if st.button("→ Booked", key=f"book_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
-                                st.success("Updated")
-                                st.cache_data.clear()
-                                st.rerun()
-    
-                with action_cols[3]:
-                    if current_status not in ['Rejected', 'Cancelled', 'Booked']:
-                        if st.button("Reject", key=f"rej_{booking['booking_id']}", use_container_width=True):
+                    with exp_col2:
+                        if st.button("✕ Reject Booking", key=f"exp_rej_inq_{booking['booking_id']}", use_container_width=True):
                             if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
-                                st.warning("Rejected")
+                                st.warning("Booking Rejected")
                                 st.cache_data.clear()
                                 st.rerun()
-    
+
+                elif current_status == 'Requested':
+                    exp_col1, exp_col2, exp_col3 = st.columns(3)
+                    with exp_col1:
+                        if st.button("← Back to Inquiry", key=f"exp_back_inq_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Inquiry', st.session_state.username):
+                                st.success("Moved to Inquiry")
+                                st.cache_data.clear()
+                                st.rerun()
+                    with exp_col2:
+                        if st.button("→ Move to Confirmed", key=f"exp_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                                st.success("Moved to Confirmed")
+                                st.cache_data.clear()
+                                st.rerun()
+                    with exp_col3:
+                        if st.button("✕ Reject Booking", key=f"exp_rej_req_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                                st.warning("Booking Rejected")
+                                st.cache_data.clear()
+                                st.rerun()
+
+                elif current_status == 'Confirmed':
+                    exp_col1, exp_col2, exp_col3 = st.columns(3)
+                    with exp_col1:
+                        if st.button("← Back to Requested", key=f"exp_back_req_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
+                                st.success("Moved to Requested")
+                                st.cache_data.clear()
+                                st.rerun()
+                    with exp_col2:
+                        if st.button("→ Mark as Booked", key=f"exp_book_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
+                                st.success("Marked as Booked")
+                                st.cache_data.clear()
+                                st.rerun()
+                    with exp_col3:
+                        if st.button("✕ Reject Booking", key=f"exp_rej_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
+                                st.warning("Booking Rejected")
+                                st.cache_data.clear()
+                                st.rerun()
+
+                elif current_status == 'Booked':
+                    exp_col1, exp_col2 = st.columns(2)
+                    with exp_col1:
+                        if st.button("← Back to Confirmed", key=f"exp_back_conf_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
+                                st.success("Moved to Confirmed")
+                                st.cache_data.clear()
+                                st.rerun()
+                    with exp_col2:
+                        if st.button("✕ Cancel Booking", key=f"exp_cancel_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Cancelled', st.session_state.username):
+                                st.warning("Booking Cancelled")
+                                st.cache_data.clear()
+                                st.rerun()
+
+                elif current_status in ['Rejected', 'Cancelled']:
+                    exp_col1, exp_col2 = st.columns(2)
+                    with exp_col1:
+                        if st.button("↻ Restore to Inquiry", key=f"exp_restore_{booking['booking_id']}", use_container_width=True):
+                            if update_booking_status(booking['booking_id'], 'Inquiry', st.session_state.username):
+                                st.success("Restored to Inquiry")
+                                st.cache_data.clear()
+                                st.rerun()
+
                 st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
     
                 # Booking notes section
