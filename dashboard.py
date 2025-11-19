@@ -1077,10 +1077,17 @@ st.markdown("""
 tab1, tab2, tab3 = st.tabs(["Bookings", "Analytics", "Reports"])
 
 with tab1:
-    st.markdown("""
-        <h2 style='margin-bottom: 0.5rem;'>Booking Requests</h2>
-        <p style='color: #d4b896; margin-bottom: 1rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
-    """, unsafe_allow_html=True)
+    # Header with refresh button
+    header_col1, header_col2 = st.columns([4, 1])
+    with header_col1:
+        st.markdown("""
+            <h2 style='margin-bottom: 0.5rem;'>Booking Requests</h2>
+            <p style='color: #d4b896; margin-bottom: 1rem; font-size: 0.9375rem;'>Manage and track all incoming tee time requests</p>
+        """, unsafe_allow_html=True)
+    with header_col2:
+        if st.button("🔄 Refresh", key="refresh_bookings", use_container_width=True, help="Refresh booking data"):
+            st.cache_data.clear()
+            st.rerun()
 
     # Show active filter indicator
     if st.session_state.clicked_status_filter:
