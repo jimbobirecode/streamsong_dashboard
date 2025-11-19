@@ -753,7 +753,7 @@ def load_bookings_from_db(club_filter):
             SELECT
                 id, booking_id, guest_email, date, tee_time, players, total,
                 status, note, club, timestamp, customer_confirmed_at,
-                updated_at, updated_by, created_at, hotel_required
+                updated_at, updated_by, created_at
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
@@ -977,16 +977,13 @@ def update_booking_note(booking_id: str, note: str):
 # ========================================
 
 with st.sidebar:
-    # Small logo in sidebar
-    logo_col1, logo_col2 = st.columns([1, 3])
-    with logo_col1:
-        st.image("assets/ssr-logo-notag.png", use_column_width=True)
-    with logo_col2:
-        st.markdown("""
-            <div style='padding-top: 0.5rem;'>
-                <p style='color: #e8e3d9; font-size: 0.9rem; margin: 0; font-weight: 600; letter-spacing: 0.5px;'>Booking Dashboard</p>
-            </div>
-        """, unsafe_allow_html=True)
+    # Small logo in sidebar - stacked vertically
+    st.image("assets/ssr-logo-notag.png", use_column_width=True)
+    st.markdown("""
+        <div style='text-align: center; margin-top: 0.5rem;'>
+            <p style='color: #e8e3d9; font-size: 0.9rem; margin: 0; font-weight: 600; letter-spacing: 0.5px;'>Booking Dashboard</p>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("<div style='height: 1px; background: #6b7c3f; margin: 1rem 0 1.5rem 0;'></div>", unsafe_allow_html=True)
 
