@@ -524,79 +524,39 @@ with tab1:
                 details_rows = ""
 
                 # Dates row
-                details_rows += f"""
-                <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>
-                    <div>
-                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div>
-                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div>
-                    </div>
-                    <div>
-                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div>
-                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div>
-                    </div>
-                </div>
-                """
+                details_rows += f"<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
+                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div></div>"
+                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div></div>"
+                details_rows += "</div>"
 
                 # Nights and rooms row
                 if lodging_nights or lodging_rooms:
-                    details_rows += """<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"""
+                    details_rows += "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
 
                     if lodging_nights and not pd.isna(lodging_nights):
-                        details_rows += f"""
-                        <div>
-                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Nights</div>
-                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_nights)}</div>
-                        </div>
-                        """
+                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Nights</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_nights)}</div></div>"
 
                     if lodging_rooms and not pd.isna(lodging_rooms):
-                        details_rows += f"""
-                        <div>
-                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Rooms</div>
-                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_rooms)}</div>
-                        </div>
-                        """
+                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Rooms</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_rooms)}</div></div>"
 
                     details_rows += "</div>"
 
                 # Room type
                 if lodging_room_type and not pd.isna(lodging_room_type) and str(lodging_room_type).strip():
                     room_type_display = str(lodging_room_type).replace('_', ' ').title()
-                    details_rows += f"""
-                    <div style='margin-bottom: 0.75rem;'>
-                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Room Type</div>
-                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(room_type_display)}</div>
-                    </div>
-                    """
+                    details_rows += f"<div style='margin-bottom: 0.75rem;'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Room Type</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(room_type_display)}</div></div>"
 
                 # Lodging cost
                 if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
-                    details_rows += f"""
-                    <div style='margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'>
-                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Estimated Lodging Cost</div>
-                        <div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(lodging_cost):,.2f}</div>
-                    </div>
-                    """
+                    details_rows += f"<div style='margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Estimated Lodging Cost</div><div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(lodging_cost):,.2f}</div></div>"
 
                 # Special preferences
                 if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
                     prefs_list = str(lodging_preferences).split(';')
                     prefs_html = "<br>".join([f"• {html.escape(pref.strip())}" for pref in prefs_list if pref.strip()])
-                    details_rows += f"""
-                    <div style='padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'>
-                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Special Requests</div>
-                        <div style='color: rgba(255,255,255,0.9); font-size: 0.875rem; line-height: 1.6;'>{prefs_html}</div>
-                    </div>
-                    """
+                    details_rows += f"<div style='padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Special Requests</div><div style='color: rgba(255,255,255,0.9); font-size: 0.875rem; line-height: 1.6;'>{prefs_html}</div></div>"
 
-                hotel_details_html = f"""
-                <div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'>
-                    <div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>
-                        🏨 Hotel Accommodation
-                    </div>
-                    {details_rows}
-                </div>
-                """
+                hotel_details_html = f"<div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 Hotel Accommodation</div>{details_rows}</div>"
 
             # Golf courses and tee times section
             golf_courses = booking.get('golf_courses', '')
