@@ -493,17 +493,22 @@ with tab1:
     
                 progress_html = f"<div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
     
-            # Hotel requirement badge and dates
+            # Hotel requirement badge and details
             hotel_required = booking.get('hotel_required', False)
             hotel_badge = ""
-            hotel_dates_html = ""
+            hotel_details_html = ""
 
             if hotel_required:
                 hotel_badge = "<div style='display: inline-block; background: #cc8855; color: #ffffff; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 0.5rem;'>Hotel Required</div>"
 
-                # Format hotel dates if available
+                # Format hotel dates
                 hotel_checkin = booking.get('hotel_checkin')
                 hotel_checkout = booking.get('hotel_checkout')
+                lodging_nights = booking.get('lodging_nights')
+                lodging_rooms = booking.get('lodging_rooms')
+                lodging_room_type = booking.get('lodging_room_type')
+                lodging_preferences = booking.get('lodging_preferences')
+                lodging_cost = booking.get('lodging_cost')
 
                 if hotel_checkin and not pd.isna(hotel_checkin):
                     checkin_str = hotel_checkin.strftime('%b %d, %Y')
@@ -515,7 +520,83 @@ with tab1:
                 else:
                     checkout_str = "Not Set"
 
-                hotel_dates_html = f"<div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>Hotel Accommodation</div><div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;'><div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div></div><div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div></div></div></div>"
+                # Build lodging details grid
+                details_rows = ""
+
+                # Dates row
+                details_rows += f"""
+                <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>
+                    <div>
+                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div>
+                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div>
+                    </div>
+                    <div>
+                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div>
+                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div>
+                    </div>
+                </div>
+                """
+
+                # Nights and rooms row
+                if lodging_nights or lodging_rooms:
+                    details_rows += """<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"""
+
+                    if lodging_nights and not pd.isna(lodging_nights):
+                        details_rows += f"""
+                        <div>
+                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Nights</div>
+                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_nights)}</div>
+                        </div>
+                        """
+
+                    if lodging_rooms and not pd.isna(lodging_rooms):
+                        details_rows += f"""
+                        <div>
+                            <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Rooms</div>
+                            <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_rooms)}</div>
+                        </div>
+                        """
+
+                    details_rows += "</div>"
+
+                # Room type
+                if lodging_room_type and not pd.isna(lodging_room_type) and str(lodging_room_type).strip():
+                    room_type_display = str(lodging_room_type).replace('_', ' ').title()
+                    details_rows += f"""
+                    <div style='margin-bottom: 0.75rem;'>
+                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Room Type</div>
+                        <div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(room_type_display)}</div>
+                    </div>
+                    """
+
+                # Lodging cost
+                if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
+                    details_rows += f"""
+                    <div style='margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'>
+                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Estimated Lodging Cost</div>
+                        <div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(lodging_cost):,.2f}</div>
+                    </div>
+                    """
+
+                # Special preferences
+                if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
+                    prefs_list = str(lodging_preferences).split(';')
+                    prefs_html = "<br>".join([f"• {html.escape(pref.strip())}" for pref in prefs_list if pref.strip()])
+                    details_rows += f"""
+                    <div style='padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'>
+                        <div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Special Requests</div>
+                        <div style='color: rgba(255,255,255,0.9); font-size: 0.875rem; line-height: 1.6;'>{prefs_html}</div>
+                    </div>
+                    """
+
+                hotel_details_html = f"""
+                <div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'>
+                    <div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>
+                        🏨 Hotel Accommodation
+                    </div>
+                    {details_rows}
+                </div>
+                """
 
             # Golf courses and tee times section
             golf_courses = booking.get('golf_courses', '')
@@ -532,7 +613,7 @@ with tab1:
             note_display = html.escape(note_content).replace('\n', '<br>')
 
             # Build complete card HTML (without notes - notes will be in expander below)
-            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>{golf_info_html}{hotel_dates_html}</div>"
+            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>{golf_info_html}{hotel_details_html}</div>"
 
             # Render the complete card
             st.markdown(card_html, unsafe_allow_html=True)
