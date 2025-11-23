@@ -559,11 +559,11 @@ with tab1:
 
                 hotel_details_html = f"<div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 Hotel Accommodation</div>{details_rows}</div>"
 
-            # Parse and display selected_tee_times
+            # Parse and display selected_tee_times in the existing blue section
             selected_tee_times = booking.get('selected_tee_times', '')
-            tee_times_html = ""
+            tee_times_section_html = ""
 
-            # Only show tee times for status "Requested" or later
+            # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
             if show_tee_times and selected_tee_times and not pd.isna(selected_tee_times) and str(selected_tee_times).strip():
@@ -572,65 +572,47 @@ with tab1:
                     tee_times_data = json.loads(selected_tee_times) if isinstance(selected_tee_times, str) else selected_tee_times
 
                     if tee_times_data and isinstance(tee_times_data, list) and len(tee_times_data) > 0:
-                        # Build tee times display
+                        # Build tee times display - replacing the basic blue section
                         tee_times_rows = ""
 
                         for i, tee_time in enumerate(tee_times_data):
                             round_num = i + 1
-                            round_label = f"Round {round_num}" if len(tee_times_data) > 1 else "Tee Time"
+                            round_label = f"Round {round_num}" if len(tee_times_data) > 1 else ""
 
-                            # Build details for this tee time
-                            details_html = ""
-
-                            # Date and time row
-                            date_str = tee_time.get('date', 'Not specified')
-                            time_str = tee_time.get('time', 'Not specified')
-
-                            details_html += "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
-                            details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Date</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(date_str))}</div></div>"
-                            details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Time</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(time_str))}</div></div>"
-                            details_html += "</div>"
-
-                            # Course name
+                            # Get data from JSON
+                            date_str = tee_time.get('date', booking['date'].strftime('%b %d, %Y'))
+                            time_str = tee_time.get('time', tee_time_display)
                             course_name = tee_time.get('course_name', '')
-                            if course_name:
-                                details_html += f"<div style='margin-bottom: 0.75rem;'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Course</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(course_name))}</div></div>"
+                            players = tee_time.get('players', booking['players'])
+                            total_cost = tee_time.get('total_cost', '')
 
-                            # Players and pricing row (if available)
-                            players = tee_time.get('players')
-                            price_per_player = tee_time.get('price_per_player')
-                            total_cost = tee_time.get('total_cost')
+                            # Build row for this tee time
+                            round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ {html.escape(round_label)}</div>" if round_label else ""
 
-                            if players or price_per_player or total_cost:
-                                details_html += "<div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.75rem;'>"
+                            course_display = f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(course_name))}</div></div>" if course_name else ""
 
-                                if players:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Players</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(players)}</div></div>"
+                            # Determine if we need 4 or 5 columns
+                            grid_cols = "repeat(5, 1fr)" if course_name else "repeat(4, 1fr)"
 
-                                if price_per_player:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Price/Player</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>${float(price_per_player):,.2f}</div></div>"
+                            tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>{course_display}<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(total_cost):,.2f if total_cost else 0.00}</div></div></div>"
 
-                                if total_cost:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Total Cost</div><div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(total_cost):,.2f}</div></div>"
-
-                                details_html += "</div>"
-
-                            # Add separator between rounds if multiple rounds
-                            border_style = "border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 1rem; margin-bottom: 1rem;" if i < len(tee_times_data) - 1 else ""
-
-                            tee_times_rows += f"<div style='{border_style}'><div style='color: #ffffff; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>⛳ {html.escape(round_label)}</div>{details_html}</div>"
-
-                        tee_times_html = f"<div style='background: #6b7c3f; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏌️ Selected Tee Times</div>{tee_times_rows}</div>"
+                        tee_times_section_html = tee_times_rows
+                    else:
+                        # Fallback to basic display
+                        tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
 
                 except (json.JSONDecodeError, TypeError, ValueError) as e:
-                    # If JSON parsing fails, show a simple message
-                    tee_times_html = f"<div style='background: #6b7c3f; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏌️ Selected Tee Times</div><div style='color: rgba(255,255,255,0.9); font-size: 0.875rem;'>Tee times data format error</div></div>"
+                    # If JSON parsing fails, use basic display
+                    tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
+            else:
+                # Basic display for non-Requested status or no tee times data
+                tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
 
             # Escape and format note content for display
             note_display = html.escape(note_content).replace('\n', '<br>')
 
             # Build complete card HTML (without notes - notes will be in expander below)
-            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>{tee_times_html}{hotel_details_html}</div>"
+            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div>{tee_times_section_html}{hotel_details_html}</div>"
 
             # Render the complete card
             st.markdown(card_html, unsafe_allow_html=True)
