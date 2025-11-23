@@ -594,9 +594,14 @@ with tab1:
                         players = tee_time.get('players', booking['players'])
                         total_cost = tee_time.get('total_cost', None)
 
-                        # Add to total golf cost if available
+                        # Add to total golf cost
                         if total_cost is not None and total_cost > 0:
                             total_golf_cost += float(total_cost)
+                        elif len(tee_times_data) == 1:
+                            total_golf_cost += booking['total']
+                        else:
+                            # Add estimated per-round cost
+                            total_golf_cost += booking['total'] / len(tee_times_data)
 
                         # Build row for this tee time
                         round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ {html.escape(round_label)}</div>" if round_label else ""
@@ -617,16 +622,18 @@ with tab1:
                         # Players column
                         columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div>")
 
-                        # Round cost column (always show)
-                        # Use total_cost from tee time data if available, otherwise use booking total
+                        # Round cost column (always show actual amounts)
+                        # Use total_cost from tee time data if available
                         if total_cost is not None and total_cost > 0:
                             cost_display = f"${float(total_cost):,.2f}"
                         elif len(tee_times_data) == 1:
                             # Single round - use booking total
                             cost_display = f"${booking['total']:,.2f}"
                         else:
-                            # Multi-round package - show "Included"
-                            cost_display = "Included"
+                            # Multi-round package - estimate per round cost
+                            # Use booking total divided by number of rounds as estimate
+                            estimated_per_round = booking['total'] / len(tee_times_data)
+                            cost_display = f"${estimated_per_round:,.2f}"
 
                         columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>{cost_display}</div></div>")
 
