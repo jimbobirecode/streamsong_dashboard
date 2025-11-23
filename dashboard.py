@@ -494,7 +494,7 @@ with tab1:
     
                 progress_html = f"<div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
     
-            # Hotel requirement badge and details
+            # Hotel requirement badge and compact details
             hotel_required = booking.get('hotel_required', False)
             hotel_badge = ""
             hotel_details_html = ""
@@ -502,7 +502,7 @@ with tab1:
             if hotel_required:
                 hotel_badge = "<div style='display: inline-block; background: #cc8855; color: #ffffff; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 0.5rem;'>Hotel Required</div>"
 
-                # Format hotel dates
+                # Format hotel dates and info
                 hotel_checkin = booking.get('hotel_checkin')
                 hotel_checkout = booking.get('hotel_checkout')
                 lodging_nights = booking.get('lodging_nights')
@@ -512,125 +512,115 @@ with tab1:
                 lodging_cost = booking.get('lodging_cost')
 
                 if hotel_checkin and not pd.isna(hotel_checkin):
-                    checkin_str = hotel_checkin.strftime('%b %d, %Y')
+                    checkin_str = hotel_checkin.strftime('%b %d')
                 else:
-                    checkin_str = "Not Set"
+                    checkin_str = "TBD"
 
                 if hotel_checkout and not pd.isna(hotel_checkout):
-                    checkout_str = hotel_checkout.strftime('%b %d, %Y')
+                    checkout_str = hotel_checkout.strftime('%b %d')
                 else:
-                    checkout_str = "Not Set"
+                    checkout_str = "TBD"
 
-                # Build lodging details grid
-                details_rows = ""
+                # Build compact hotel details in a single row
+                hotel_cols = []
 
-                # Dates row
-                details_rows += f"<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
-                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div></div>"
-                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div></div>"
-                details_rows += "</div>"
+                # Dates column
+                hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>CHECK-IN/OUT</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{checkin_str} - {checkout_str}</div></div>")
 
-                # Nights and rooms row
-                if lodging_nights or lodging_rooms:
-                    details_rows += "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
+                # Nights/Rooms column
+                nights_rooms = []
+                if lodging_nights and not pd.isna(lodging_nights):
+                    nights_rooms.append(f"{int(lodging_nights)}N")
+                if lodging_rooms and not pd.isna(lodging_rooms):
+                    nights_rooms.append(f"{int(lodging_rooms)}R")
+                if nights_rooms:
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>NIGHTS/ROOMS</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{' • '.join(nights_rooms)}</div></div>")
 
-                    if lodging_nights and not pd.isna(lodging_nights):
-                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Nights</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_nights)}</div></div>"
-
-                    if lodging_rooms and not pd.isna(lodging_rooms):
-                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Rooms</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_rooms)}</div></div>"
-
-                    details_rows += "</div>"
-
-                # Room type
+                # Room type column
                 if lodging_room_type and not pd.isna(lodging_room_type) and str(lodging_room_type).strip():
                     room_type_display = str(lodging_room_type).replace('_', ' ').title()
-                    details_rows += f"<div style='margin-bottom: 0.75rem;'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Room Type</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(room_type_display)}</div></div>"
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROOM TYPE</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{html.escape(room_type_display)}</div></div>")
 
-                # Lodging cost
+                # Lodging cost column
                 if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
-                    details_rows += f"<div style='margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Estimated Lodging Cost</div><div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(lodging_cost):,.2f}</div></div>"
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>LODGING COST</div><div style='font-size: 1.25rem; font-weight: 700; color: #cc8855;'>${float(lodging_cost):,.2f}</div></div>")
 
-                # Special preferences
-                if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
-                    prefs_list = str(lodging_preferences).split(';')
-                    prefs_html = "<br>".join([f"• {html.escape(pref.strip())}" for pref in prefs_list if pref.strip()])
-                    details_rows += f"<div style='padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Special Requests</div><div style='color: rgba(255,255,255,0.9); font-size: 0.875rem; line-height: 1.6;'>{prefs_html}</div></div>"
+                # Build the grid
+                num_cols = len(hotel_cols)
+                if num_cols > 0:
+                    hotel_grid = f"<div style='display: grid; grid-template-columns: repeat({num_cols}, 1fr); gap: 1.5rem; margin-bottom: 0.5rem;'>{''.join(hotel_cols)}</div>"
 
-                hotel_details_html = f"<div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 Hotel Accommodation</div>{details_rows}</div>"
+                    # Add special requests if any
+                    prefs_section = ""
+                    if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
+                        prefs_list = str(lodging_preferences).split(';')
+                        prefs_text = " • ".join([html.escape(pref.strip()) for pref in prefs_list if pref.strip()])
+                        prefs_section = f"<div style='margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.2);'><div class='data-label' style='margin-bottom: 0.25rem;'>SPECIAL REQUESTS</div><div style='font-size: 0.85rem; color: #d4b896; line-height: 1.4;'>{prefs_text}</div></div>"
 
-            # Parse and display selected_tee_times
+                    hotel_details_html = f"<div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'><div style='color: #cc8855; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 LODGING</div>{hotel_grid}{prefs_section}</div>"
+
+            # Parse and display selected_tee_times in the existing blue section
             selected_tee_times = booking.get('selected_tee_times', '')
-            tee_times_html = ""
+            tee_times_section_html = ""
 
-            # Only show tee times for status "Requested" or later
+            # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
-            if show_tee_times and selected_tee_times and not pd.isna(selected_tee_times) and str(selected_tee_times).strip():
+            # Check if we have valid tee times data (pandas-safe check)
+            has_tee_times = (
+                selected_tee_times is not None and
+                not (isinstance(selected_tee_times, float) and pd.isna(selected_tee_times)) and
+                str(selected_tee_times).strip() and
+                str(selected_tee_times).strip() != ''
+            )
+
+            if show_tee_times and has_tee_times:
                 try:
                     # Parse the JSON array
                     tee_times_data = json.loads(selected_tee_times) if isinstance(selected_tee_times, str) else selected_tee_times
 
                     if tee_times_data and isinstance(tee_times_data, list) and len(tee_times_data) > 0:
-                        # Build tee times display
+                        # Build tee times display - replacing the basic blue section
                         tee_times_rows = ""
 
                         for i, tee_time in enumerate(tee_times_data):
                             round_num = i + 1
-                            round_label = f"Round {round_num}" if len(tee_times_data) > 1 else "Tee Time"
+                            round_label = f"Round {round_num}" if len(tee_times_data) > 1 else ""
 
-                            # Build details for this tee time
-                            details_html = ""
-
-                            # Date and time row
-                            date_str = tee_time.get('date', 'Not specified')
-                            time_str = tee_time.get('time', 'Not specified')
-
-                            details_html += "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
-                            details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Date</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(date_str))}</div></div>"
-                            details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Time</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(time_str))}</div></div>"
-                            details_html += "</div>"
-
-                            # Course name
+                            # Get data from JSON
+                            date_str = tee_time.get('date', booking['date'].strftime('%b %d, %Y'))
+                            time_str = tee_time.get('time', tee_time_display)
                             course_name = tee_time.get('course_name', '')
-                            if course_name:
-                                details_html += f"<div style='margin-bottom: 0.75rem;'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Course</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(str(course_name))}</div></div>"
+                            players = tee_time.get('players', booking['players'])
+                            total_cost = tee_time.get('total_cost', '')
 
-                            # Players and pricing row (if available)
-                            players = tee_time.get('players')
-                            price_per_player = tee_time.get('price_per_player')
-                            total_cost = tee_time.get('total_cost')
+                            # Build row for this tee time
+                            round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ {html.escape(round_label)}</div>" if round_label else ""
 
-                            if players or price_per_player or total_cost:
-                                details_html += "<div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.75rem;'>"
+                            course_display = f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(course_name))}</div></div>" if course_name else ""
 
-                                if players:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Players</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(players)}</div></div>"
+                            # Determine if we need 4 or 5 columns
+                            grid_cols = "repeat(5, 1fr)" if course_name else "repeat(4, 1fr)"
 
-                                if price_per_player:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Price/Player</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>${float(price_per_player):,.2f}</div></div>"
+                            tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>{course_display}<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(total_cost):,.2f if total_cost else 0.00}</div></div></div>"
 
-                                if total_cost:
-                                    details_html += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Total Cost</div><div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(total_cost):,.2f}</div></div>"
-
-                                details_html += "</div>"
-
-                            # Add separator between rounds if multiple rounds
-                            border_style = "border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 1rem; margin-bottom: 1rem;" if i < len(tee_times_data) - 1 else ""
-
-                            tee_times_rows += f"<div style='{border_style}'><div style='color: #ffffff; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>⛳ {html.escape(round_label)}</div>{details_html}</div>"
-
-                        tee_times_html = f"<div style='background: #6b7c3f; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏌️ Selected Tee Times</div>{tee_times_rows}</div>"
+                        tee_times_section_html = tee_times_rows
+                    else:
+                        # Fallback to basic display
+                        tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
 
                 except (json.JSONDecodeError, TypeError, ValueError) as e:
-                    # If JSON parsing fails, show a simple message
-                    tee_times_html = f"<div style='background: #6b7c3f; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏌️ Selected Tee Times</div><div style='color: rgba(255,255,255,0.9); font-size: 0.875rem;'>Tee times data format error</div></div>"
+                    # If JSON parsing fails, use basic display
+                    tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
+            else:
+                # Basic display for non-Requested status or no tee times data
+                tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
 
             # Escape and format note content for display
             note_display = html.escape(note_content).replace('\n', '<br>')
 
             # Build complete card HTML (without notes - notes will be in expander below)
-            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div><div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>{tee_times_html}{hotel_details_html}</div>"
+            card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div>{tee_times_section_html}{hotel_details_html}</div>"
 
             # Render the complete card
             st.markdown(card_html, unsafe_allow_html=True)
