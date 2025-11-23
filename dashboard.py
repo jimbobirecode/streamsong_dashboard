@@ -575,17 +575,14 @@ with tab1:
             )
 
             if show_tee_times and has_tee_times:
-                st.write(f"DEBUG - Entering tee times display block")
                 try:
                     # Data is already a list from PostgreSQL JSONB
                     tee_times_data = selected_tee_times
-                    st.write(f"DEBUG - tee_times_data: {tee_times_data}")
 
                     # Build tee times display - replacing the basic blue section
                     tee_times_rows = ""
 
                     for i, tee_time in enumerate(tee_times_data):
-                        st.write(f"DEBUG - Processing tee time {i}: {tee_time}")
                         round_num = i + 1
                         round_label = f"Round {round_num}" if len(tee_times_data) > 1 else ""
 
@@ -604,14 +601,14 @@ with tab1:
                         # Determine if we need 4 or 5 columns
                         grid_cols = "repeat(5, 1fr)" if course_name else "repeat(4, 1fr)"
 
-                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>{course_display}<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(total_cost):,.2f if total_cost else 0.00}</div></div></div>"
+                        # Format the cost properly
+                        cost_value = float(total_cost) if total_cost else 0.00
+
+                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>{course_display}<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${cost_value:,.2f}</div></div></div>"
 
                     tee_times_section_html = tee_times_rows
-                    st.write(f"DEBUG - Built tee_times_section_html, length: {len(tee_times_section_html)}")
-                    st.write(f"DEBUG - First 200 chars: {tee_times_section_html[:200]}")
 
                 except (TypeError, ValueError, KeyError) as e:
-                    st.write(f"DEBUG - Exception caught: {e}")
                     # If JSON parsing fails, use basic display
                     tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
             else:
@@ -620,9 +617,6 @@ with tab1:
 
             # Escape and format note content for display
             note_display = html.escape(note_content).replace('\n', '<br>')
-
-            # DEBUG: Show final tee_times_section_html
-            st.write(f"DEBUG - Final tee_times_section_html length: {len(tee_times_section_html)}")
 
             # Build complete card HTML (without notes - notes will be in expander below)
             card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div>{tee_times_section_html}{hotel_details_html}</div>"
