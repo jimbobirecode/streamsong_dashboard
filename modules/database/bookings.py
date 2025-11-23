@@ -26,7 +26,9 @@ def load_bookings_from_db(club_filter):
                 id, booking_id, guest_email, date, tee_time, players, total,
                 status, note, club, timestamp, customer_confirmed_at,
                 updated_at, updated_by, created_at, hotel_required,
-                hotel_checkin, hotel_checkout, golf_courses, selected_tee_times
+                hotel_checkin, hotel_checkout, golf_courses, selected_tee_times,
+                lodging_nights, lodging_rooms, lodging_room_type,
+                lodging_preferences, lodging_cost
             FROM bookings
             WHERE club = %s
             ORDER BY timestamp DESC
