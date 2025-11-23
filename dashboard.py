@@ -563,6 +563,12 @@ with tab1:
             selected_tee_times = booking.get('selected_tee_times', None)
             tee_times_section_html = ""
 
+            # DEBUG
+            st.write(f"DEBUG - Booking {booking['booking_id']}")
+            st.write(f"DEBUG - Status: {current_status}")
+            st.write(f"DEBUG - selected_tee_times: {selected_tee_times}")
+            st.write(f"DEBUG - Type: {type(selected_tee_times)}")
+
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
@@ -574,7 +580,10 @@ with tab1:
                 len(selected_tee_times) > 0
             )
 
+            st.write(f"DEBUG - show_tee_times: {show_tee_times}, has_tee_times: {has_tee_times}")
+
             if show_tee_times and has_tee_times:
+                st.write(f"DEBUG - ENTERING tee times display block")
                 try:
                     # Data is already a list from PostgreSQL JSONB
                     tee_times_data = selected_tee_times
