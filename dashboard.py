@@ -563,6 +563,9 @@ with tab1:
             selected_tee_times = booking.get('selected_tee_times', '')
             tee_times_section_html = ""
 
+            # DEBUG: Show what we're getting from the database
+            st.write(f"DEBUG - Booking {booking['booking_id']}: selected_tee_times = {repr(selected_tee_times)}, type = {type(selected_tee_times)}")
+
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
@@ -573,6 +576,8 @@ with tab1:
                 str(selected_tee_times).strip() and
                 str(selected_tee_times).strip() != ''
             )
+
+            st.write(f"DEBUG - show_tee_times: {show_tee_times}, has_tee_times: {has_tee_times}")
 
             if show_tee_times and has_tee_times:
                 try:
