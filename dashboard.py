@@ -566,7 +566,15 @@ with tab1:
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
-            if show_tee_times and selected_tee_times and not pd.isna(selected_tee_times) and str(selected_tee_times).strip():
+            # Check if we have valid tee times data (pandas-safe check)
+            has_tee_times = (
+                selected_tee_times is not None and
+                not (isinstance(selected_tee_times, float) and pd.isna(selected_tee_times)) and
+                str(selected_tee_times).strip() and
+                str(selected_tee_times).strip() != ''
+            )
+
+            if show_tee_times and has_tee_times:
                 try:
                     # Parse the JSON array
                     tee_times_data = json.loads(selected_tee_times) if isinstance(selected_tee_times, str) else selected_tee_times
