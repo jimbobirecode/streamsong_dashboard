@@ -494,7 +494,7 @@ with tab1:
     
                 progress_html = f"<div style='background: #3d5266; padding: 1.25rem; border-radius: 8px; border: 2px solid #6b7c3f;'><div style='display: flex; align-items: center; justify-content: space-between; position: relative;'><div style='position: absolute; top: 0.75rem; left: 2rem; right: 2rem; height: 3px; background: #4a6278; z-index: 1;'></div><div style='position: absolute; top: 0.75rem; left: 2rem; width: calc({progress_width}% - 2rem); height: 3px; background: linear-gradient(90deg, #87a7b3, #6b7c3f); z-index: 2;'></div>{stages_html}</div></div>"
     
-            # Hotel requirement badge and details
+            # Hotel requirement badge and compact details
             hotel_required = booking.get('hotel_required', False)
             hotel_badge = ""
             hotel_details_html = ""
@@ -502,7 +502,7 @@ with tab1:
             if hotel_required:
                 hotel_badge = "<div style='display: inline-block; background: #cc8855; color: #ffffff; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 0.5rem;'>Hotel Required</div>"
 
-                # Format hotel dates
+                # Format hotel dates and info
                 hotel_checkin = booking.get('hotel_checkin')
                 hotel_checkout = booking.get('hotel_checkout')
                 lodging_nights = booking.get('lodging_nights')
@@ -512,52 +512,52 @@ with tab1:
                 lodging_cost = booking.get('lodging_cost')
 
                 if hotel_checkin and not pd.isna(hotel_checkin):
-                    checkin_str = hotel_checkin.strftime('%b %d, %Y')
+                    checkin_str = hotel_checkin.strftime('%b %d')
                 else:
-                    checkin_str = "Not Set"
+                    checkin_str = "TBD"
 
                 if hotel_checkout and not pd.isna(hotel_checkout):
-                    checkout_str = hotel_checkout.strftime('%b %d, %Y')
+                    checkout_str = hotel_checkout.strftime('%b %d')
                 else:
-                    checkout_str = "Not Set"
+                    checkout_str = "TBD"
 
-                # Build lodging details grid
-                details_rows = ""
+                # Build compact hotel details in a single row
+                hotel_cols = []
 
-                # Dates row
-                details_rows += f"<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
-                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-In</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkin_str}</div></div>"
-                details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Check-Out</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{checkout_str}</div></div>"
-                details_rows += "</div>"
+                # Dates column
+                hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>CHECK-IN/OUT</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{checkin_str} - {checkout_str}</div></div>")
 
-                # Nights and rooms row
-                if lodging_nights or lodging_rooms:
-                    details_rows += "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;'>"
+                # Nights/Rooms column
+                nights_rooms = []
+                if lodging_nights and not pd.isna(lodging_nights):
+                    nights_rooms.append(f"{int(lodging_nights)}N")
+                if lodging_rooms and not pd.isna(lodging_rooms):
+                    nights_rooms.append(f"{int(lodging_rooms)}R")
+                if nights_rooms:
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>NIGHTS/ROOMS</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{' • '.join(nights_rooms)}</div></div>")
 
-                    if lodging_nights and not pd.isna(lodging_nights):
-                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Nights</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_nights)}</div></div>"
-
-                    if lodging_rooms and not pd.isna(lodging_rooms):
-                        details_rows += f"<div><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Rooms</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{int(lodging_rooms)}</div></div>"
-
-                    details_rows += "</div>"
-
-                # Room type
+                # Room type column
                 if lodging_room_type and not pd.isna(lodging_room_type) and str(lodging_room_type).strip():
                     room_type_display = str(lodging_room_type).replace('_', ' ').title()
-                    details_rows += f"<div style='margin-bottom: 0.75rem;'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Room Type</div><div style='color: #ffffff; font-size: 0.95rem; font-weight: 700;'>{html.escape(room_type_display)}</div></div>"
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROOM TYPE</div><div style='font-size: 0.9rem; font-weight: 600; color: #f7f5f2;'>{html.escape(room_type_display)}</div></div>")
 
-                # Lodging cost
+                # Lodging cost column
                 if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
-                    details_rows += f"<div style='margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;'>Estimated Lodging Cost</div><div style='color: #ffffff; font-size: 1.25rem; font-weight: 700;'>${float(lodging_cost):,.2f}</div></div>"
+                    hotel_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>LODGING COST</div><div style='font-size: 1.25rem; font-weight: 700; color: #cc8855;'>${float(lodging_cost):,.2f}</div></div>")
 
-                # Special preferences
-                if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
-                    prefs_list = str(lodging_preferences).split(';')
-                    prefs_html = "<br>".join([f"• {html.escape(pref.strip())}" for pref in prefs_list if pref.strip()])
-                    details_rows += f"<div style='padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.3);'><div style='color: rgba(255,255,255,0.8); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Special Requests</div><div style='color: rgba(255,255,255,0.9); font-size: 0.875rem; line-height: 1.6;'>{prefs_html}</div></div>"
+                # Build the grid
+                num_cols = len(hotel_cols)
+                if num_cols > 0:
+                    hotel_grid = f"<div style='display: grid; grid-template-columns: repeat({num_cols}, 1fr); gap: 1.5rem; margin-bottom: 0.5rem;'>{''.join(hotel_cols)}</div>"
 
-                hotel_details_html = f"<div style='background: #cc8855; padding: 1rem; border-radius: 8px; margin-top: 1rem;'><div style='color: #ffffff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 Hotel Accommodation</div>{details_rows}</div>"
+                    # Add special requests if any
+                    prefs_section = ""
+                    if lodging_preferences and not pd.isna(lodging_preferences) and str(lodging_preferences).strip():
+                        prefs_list = str(lodging_preferences).split(';')
+                        prefs_text = " • ".join([html.escape(pref.strip()) for pref in prefs_list if pref.strip()])
+                        prefs_section = f"<div style='margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.2);'><div class='data-label' style='margin-bottom: 0.25rem;'>SPECIAL REQUESTS</div><div style='font-size: 0.85rem; color: #d4b896; line-height: 1.4;'>{prefs_text}</div></div>"
+
+                    hotel_details_html = f"<div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'><div style='color: #cc8855; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;'>🏨 LODGING</div>{hotel_grid}{prefs_section}</div>"
 
             # Parse and display selected_tee_times in the existing blue section
             selected_tee_times = booking.get('selected_tee_times', '')
