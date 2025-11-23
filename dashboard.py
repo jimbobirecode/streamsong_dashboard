@@ -591,20 +591,36 @@ with tab1:
                         time_str = tee_time.get('time', tee_time_display)
                         course_name = tee_time.get('course_name', '')
                         players = tee_time.get('players', booking['players'])
-                        total_cost = tee_time.get('total_cost', '')
+                        total_cost = tee_time.get('total_cost', None)
 
                         # Build row for this tee time
                         round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ {html.escape(round_label)}</div>" if round_label else ""
 
-                        course_display = f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(course_name))}</div></div>" if course_name else ""
+                        # Build columns based on available data
+                        columns = []
 
-                        # Determine if we need 4 or 5 columns
-                        grid_cols = "repeat(5, 1fr)" if course_name else "repeat(4, 1fr)"
+                        # Date column
+                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div>")
 
-                        # Format the cost properly
-                        cost_value = float(total_cost) if total_cost else 0.00
+                        # Time column
+                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>")
 
-                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>{course_display}<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${cost_value:,.2f}</div></div></div>"
+                        # Course column (optional)
+                        if course_name:
+                            columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(course_name))}</div></div>")
+
+                        # Players column
+                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div>")
+
+                        # Round cost column (optional - only if we have the data)
+                        if total_cost is not None and total_cost > 0:
+                            columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(total_cost):,.2f}</div></div>")
+
+                        # Determine grid columns based on number of columns
+                        num_cols = len(columns)
+                        grid_cols = f"repeat({num_cols}, 1fr)"
+
+                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'>{''.join(columns)}</div>"
 
                     tee_times_section_html = tee_times_rows
 
