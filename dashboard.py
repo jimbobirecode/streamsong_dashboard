@@ -612,9 +612,18 @@ with tab1:
                         # Players column
                         columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div>")
 
-                        # Round cost column (optional - only if we have the data)
+                        # Round cost column (always show)
+                        # Use total_cost from tee time data if available, otherwise use booking total
                         if total_cost is not None and total_cost > 0:
-                            columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(total_cost):,.2f}</div></div>")
+                            cost_display = f"${float(total_cost):,.2f}"
+                        elif len(tee_times_data) == 1:
+                            # Single round - use booking total
+                            cost_display = f"${booking['total']:,.2f}"
+                        else:
+                            # Multi-round package - show "Included"
+                            cost_display = "Included"
+
+                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>{cost_display}</div></div>")
 
                         # Determine grid columns based on number of columns
                         num_cols = len(columns)
