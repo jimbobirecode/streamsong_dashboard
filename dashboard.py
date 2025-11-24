@@ -563,15 +563,8 @@ with tab1:
             selected_tee_times = booking.get('selected_tee_times', None)
             tee_times_section_html = ""
 
-            st.write("=" * 80)
-            st.write(f"DEBUG - Booking: {booking['booking_id']}")
-            st.write(f"DEBUG - Current status: {current_status}")
-            st.write(f"DEBUG - selected_tee_times value: {selected_tee_times}")
-            st.write(f"DEBUG - selected_tee_times type: {type(selected_tee_times)}")
-
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
-            st.write(f"DEBUG - show_tee_times: {show_tee_times}")
 
             # Check if we have valid tee times data
             # Note: PostgreSQL returns JSONB as already-parsed list/dict objects
@@ -580,28 +573,21 @@ with tab1:
                 isinstance(selected_tee_times, list) and
                 len(selected_tee_times) > 0
             )
-            st.write(f"DEBUG - has_tee_times: {has_tee_times}")
 
             if show_tee_times and has_tee_times:
-                st.write("DEBUG - ENTERING tee times display block")
                 try:
                     # Build tee times display - replacing the basic blue section
                     tee_times_rows = ""
-                    total_golf_cost = 0
-
-                    st.write(f"DEBUG - Processing {len(selected_tee_times)} tee times")
+                    total_golf_cost = 0.0
 
                     for i, tee_time in enumerate(selected_tee_times):
-                        st.write(f"DEBUG - Round {i+1} data: {tee_time}")
-
                         # Extract data from each tee time entry
                         round_date = tee_time.get('date', booking['date'].strftime('%b %d, %Y'))
                         round_time = tee_time.get('time', tee_time_display)
                         round_course = tee_time.get('course_name', '')
                         round_players = tee_time.get('players', booking['players'])
-                        round_cost = tee_time.get('total_cost', None)
-
-                        st.write(f"DEBUG - Extracted: date={round_date}, time={round_time}, course={round_course}, players={round_players}, cost={round_cost}")
+                        # Try both 'total_cost' and 'price' field names
+                        round_cost = tee_time.get('total_cost') or tee_time.get('price')
 
                         # Calculate cost display
                         if round_cost is not None and round_cost > 0:
@@ -609,11 +595,11 @@ with tab1:
                             total_golf_cost += float(round_cost)
                         elif len(selected_tee_times) == 1:
                             # Single round - use booking total
-                            cost_display = f"${booking['total']:,.2f}"
-                            total_golf_cost = booking['total']
+                            cost_display = f"${float(booking['total']):,.2f}"
+                            total_golf_cost = float(booking['total'])
                         else:
                             # Multi-round - divide total evenly
-                            per_round = booking['total'] / len(selected_tee_times)
+                            per_round = float(booking['total']) / len(selected_tee_times)
                             cost_display = f"${per_round:,.2f}"
                             total_golf_cost += per_round
 
@@ -636,11 +622,7 @@ with tab1:
                         # Build grid
                         grid_template = f"repeat({len(cols)}, 1fr)"
                         margin = "0.5rem" if i < len(selected_tee_times) - 1 else "1rem"
-                        round_html = f"{round_header}<div style='display: grid; grid-template-columns: {grid_template}; gap: 1.5rem; margin-bottom: {margin};'>{''.join(cols)}</div>"
-                        st.write(f"DEBUG - Built HTML for round {i+1}, length: {len(round_html)}")
-                        tee_times_rows += round_html
-
-                    st.write(f"DEBUG - Total tee_times_rows HTML length: {len(tee_times_rows)}")
+                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_template}; gap: 1.5rem; margin-bottom: {margin};'>{''.join(cols)}</div>"
 
                     # Add summary totals
                     lodging_cost = booking.get('lodging_cost', None)
@@ -661,34 +643,21 @@ with tab1:
 
                     tee_times_section_html = tee_times_rows + summary_html
 
-                    st.write(f"DEBUG - Final tee_times_section_html length: {len(tee_times_section_html)}")
-                    st.write(f"DEBUG - SUCCESS - tee times HTML built")
-
                 except Exception as e:
-                    st.write(f"DEBUG - EXCEPTION CAUGHT: {type(e).__name__}: {str(e)}")
-                    import traceback
-                    st.write(f"DEBUG - Traceback: {traceback.format_exc()}")
                     # Fallback to basic display on any error
-                    tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
+                    tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${float(booking['total']):,.2f}</div></div></div>"
             else:
-                st.write(f"DEBUG - Using basic display (show_tee_times={show_tee_times}, has_tee_times={has_tee_times})")
                 # Basic display for non-Requested status or no tee times data
                 tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
 
             # Escape and format note content for display
             note_display = html.escape(note_content).replace('\n', '<br>')
 
-            st.write(f"DEBUG - About to build card HTML")
-            st.write(f"DEBUG - tee_times_section_html being inserted has length: {len(tee_times_section_html)}")
-
             # Build complete card HTML (without notes - notes will be in expander below)
             card_html = f"<div class='booking-card' style='background: linear-gradient(135deg, #3d5266 0%, #4a6278 100%); border: 2px solid #6b7c3f; border-radius: 12px; padding: 1.5rem; margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(107, 124, 63, 0.3); transition: all 0.3s ease;'><div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;'><div style='flex: 1;'><div style='display: flex; align-items: center;'><div class='booking-id' style='margin-bottom: 0.5rem;'>{html.escape(str(booking['booking_id']))}</div>{hotel_badge}</div><div class='booking-email'>{html.escape(str(booking['guest_email']))}</div></div><div style='text-align: right;'><div class='timestamp'>REQUESTED</div><div class='timestamp-value'>{requested_time}</div></div></div><div style='margin-bottom: 1.5rem;'>{progress_html}</div><div style='height: 1px; background: linear-gradient(90deg, transparent, #6b7c3f, transparent); margin: 1.5rem 0;'></div>{tee_times_section_html}{hotel_details_html}</div>"
 
-            st.write(f"DEBUG - Final card_html length: {len(card_html)}")
-
             # Render the complete card
             st.markdown(card_html, unsafe_allow_html=True)
-            st.write("=" * 80)
 
             # Notes dropdown/expander
             with st.expander("📝 View/Edit Booking Notes & Email Content", expanded=False):
