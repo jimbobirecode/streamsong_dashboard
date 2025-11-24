@@ -587,12 +587,13 @@ with tab1:
                         round_course = tee_time.get('course_name', '')
                         round_players = tee_time.get('players', booking['players'])
                         # Try both 'total_cost' and 'price' field names
-                        round_cost = tee_time.get('total_cost') or tee_time.get('price')
+                        round_cost_per_player = tee_time.get('total_cost') or tee_time.get('price')
 
-                        # Calculate cost display
-                        if round_cost is not None and round_cost > 0:
-                            cost_display = f"${float(round_cost):,.2f}"
-                            total_golf_cost += float(round_cost)
+                        # Calculate cost display - multiply by number of players for group total
+                        if round_cost_per_player is not None and round_cost_per_player > 0:
+                            round_total = float(round_cost_per_player) * int(round_players)
+                            cost_display = f"${round_total:,.2f}"
+                            total_golf_cost += round_total
                         elif len(selected_tee_times) == 1:
                             # Single round - use booking total
                             cost_display = f"${float(booking['total']):,.2f}"
@@ -627,6 +628,26 @@ with tab1:
                     # Add summary totals
                     lodging_cost = booking.get('lodging_cost', None)
 
+                    # Calculate resort fees
+                    resort_fee_total = 0.0
+                    resort_fee_per_person = booking.get('resort_fee_per_person', None)
+
+                    # If resort_fee_per_person is set in booking, calculate total based on players and nights
+                    if resort_fee_per_person and not pd.isna(resort_fee_per_person) and float(resort_fee_per_person) > 0:
+                        lodging_nights = booking.get('lodging_nights', None)
+                        if lodging_nights and not pd.isna(lodging_nights) and int(lodging_nights) > 0:
+                            # Resort fee = per person × players × nights
+                            resort_fee_total = float(resort_fee_per_person) * int(booking['players']) * int(lodging_nights)
+                        else:
+                            # If no lodging nights specified, assume 1 night per round
+                            num_nights = len(selected_tee_times) if len(selected_tee_times) > 0 else 1
+                            resort_fee_total = float(resort_fee_per_person) * int(booking['players']) * num_nights
+
+                    # Check if there's a pre-calculated resort_fee_total in the booking
+                    booking_resort_fee_total = booking.get('resort_fee_total', None)
+                    if booking_resort_fee_total and not pd.isna(booking_resort_fee_total) and float(booking_resort_fee_total) > 0:
+                        resort_fee_total = float(booking_resort_fee_total)
+
                     summary_cols = []
                     summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL GOLF COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${total_golf_cost:,.2f}</div></div>")
 
@@ -635,6 +656,11 @@ with tab1:
                         grand_total = total_golf_cost + float(lodging_cost)
                     else:
                         grand_total = total_golf_cost
+
+                    # Add resort fees to summary if applicable
+                    if resort_fee_total > 0:
+                        summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>RESORT FEES</div><div style='font-size: 1.5rem; font-weight: 700; color: #87a7b3;'>${resort_fee_total:,.2f}</div></div>")
+                        grand_total += resort_fee_total
 
                     summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>GRAND TOTAL</div><div style='font-size: 1.75rem; font-weight: 700; color: #f7f5f2;'>${grand_total:,.2f}</div></div>")
 
