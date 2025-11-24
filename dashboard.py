@@ -563,12 +563,6 @@ with tab1:
             selected_tee_times = booking.get('selected_tee_times', None)
             tee_times_section_html = ""
 
-            # DEBUG
-            st.write(f"DEBUG - Booking {booking['booking_id']}")
-            st.write(f"DEBUG - Status: {current_status}")
-            st.write(f"DEBUG - selected_tee_times: {selected_tee_times}")
-            st.write(f"DEBUG - Type: {type(selected_tee_times)}")
-
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
@@ -580,10 +574,7 @@ with tab1:
                 len(selected_tee_times) > 0
             )
 
-            st.write(f"DEBUG - show_tee_times: {show_tee_times}, has_tee_times: {has_tee_times}")
-
             if show_tee_times and has_tee_times:
-                st.write(f"DEBUG - ENTERING tee times display block")
                 try:
                     # Data is already a list from PostgreSQL JSONB
                     tee_times_data = selected_tee_times
@@ -812,159 +803,6 @@ with tab1:
 
     st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
-    # Remove old expander code - everything is now in the main card
-    if False:  # Placeholder to maintain structure
-        with st.expander("View Full Details", expanded=False):
-                # Status Change Actions
-                st.markdown("### Status Management")
-
-                current_status = booking['status']
-
-                if current_status in ['Inquiry', 'Pending']:
-                    exp_col1, exp_col2 = st.columns(2)
-                    with exp_col1:
-                        if st.button("→ Move to Requested", key=f"exp_req_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
-                                st.success("Moved to Requested")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col2:
-                        if st.button("✕ Reject Booking", key=f"exp_rej_inq_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
-                                st.warning("Booking Rejected")
-                                st.cache_data.clear()
-                                st.rerun()
-
-                elif current_status == 'Requested':
-                    exp_col1, exp_col2, exp_col3 = st.columns(3)
-                    with exp_col1:
-                        if st.button("← Back to Inquiry", key=f"exp_back_inq_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Inquiry', st.session_state.username):
-                                st.success("Moved to Inquiry")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col2:
-                        if st.button("→ Move to Confirmed", key=f"exp_conf_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                                st.success("Moved to Confirmed")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col3:
-                        if st.button("✕ Reject Booking", key=f"exp_rej_req_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
-                                st.warning("Booking Rejected")
-                                st.cache_data.clear()
-                                st.rerun()
-
-                elif current_status == 'Confirmed':
-                    exp_col1, exp_col2, exp_col3 = st.columns(3)
-                    with exp_col1:
-                        if st.button("← Back to Requested", key=f"exp_back_req_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Requested', st.session_state.username):
-                                st.success("Moved to Requested")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col2:
-                        if st.button("→ Mark as Booked", key=f"exp_book_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Booked', st.session_state.username):
-                                st.success("Marked as Booked")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col3:
-                        if st.button("✕ Reject Booking", key=f"exp_rej_conf_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Rejected', st.session_state.username):
-                                st.warning("Booking Rejected")
-                                st.cache_data.clear()
-                                st.rerun()
-
-                elif current_status == 'Booked':
-                    exp_col1, exp_col2 = st.columns(2)
-                    with exp_col1:
-                        if st.button("← Back to Confirmed", key=f"exp_back_conf_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Confirmed', st.session_state.username):
-                                st.success("Moved to Confirmed")
-                                st.cache_data.clear()
-                                st.rerun()
-                    with exp_col2:
-                        if st.button("✕ Cancel Booking", key=f"exp_cancel_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Cancelled', st.session_state.username):
-                                st.warning("Booking Cancelled")
-                                st.cache_data.clear()
-                                st.rerun()
-
-                elif current_status in ['Rejected', 'Cancelled']:
-                    exp_col1, exp_col2 = st.columns(2)
-                    with exp_col1:
-                        if st.button("↻ Restore to Inquiry", key=f"exp_restore_{booking['booking_id']}", use_container_width=True):
-                            if update_booking_status(booking['booking_id'], 'Inquiry', st.session_state.username):
-                                st.success("Restored to Inquiry")
-                                st.cache_data.clear()
-                                st.rerun()
-
-                st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
-    
-                # Booking notes section
-                st.markdown("""
-                    <div style='background: #3d5266; padding: 0.75rem 1rem; border-radius: 8px 8px 0 0; border: 2px solid #6b7c3f; border-bottom: none; margin-bottom: 0;'>
-                        <div class='data-label' style='margin: 0;'>BOOKING NOTES</div>
-                    </div>
-                """, unsafe_allow_html=True)
-    
-                # Editable notes text area
-                updated_note = st.text_area(
-                    label="Notes",
-                    value=note_content,
-                    height=200,
-                    disabled=False,
-                    label_visibility="collapsed",
-                    key=f"note_{booking['booking_id']}"
-                )
-    
-                # Save notes button
-                if updated_note != note_content:
-                    if st.button("Save Notes", key=f"save_note_{booking['booking_id']}", use_container_width=True):
-                        if update_booking_note(booking['booking_id'], updated_note):
-                            st.success("Notes saved successfully!")
-                            st.cache_data.clear()
-                            st.rerun()
-    
-                if booking.get('updated_by') and not pd.isna(booking.get('updated_by')):
-                    st.markdown(f"""
-                        <div style='margin-top: 1.5rem; padding: 1rem; background: #3d5266; border-radius: 8px; border: 2px solid #6b7c3f;'>
-                            <div class='data-label'>LAST UPDATED</div>
-                            <div style='color: #f7f5f2; font-size: 0.875rem; margin-top: 0.5rem;'>{booking['updated_at'].strftime('%b %d, %Y • %I:%M %p')}</div>
-                            <div style='color: #d4b896; font-size: 0.8125rem; margin-top: 0.25rem;'>by {booking['updated_by']}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-    
-                # Delete booking button (with confirmation)
-                st.markdown("<div style='margin-top: 1.5rem; border-top: 2px solid #6b7c3f; padding-top: 1rem;'></div>", unsafe_allow_html=True)
-                st.markdown("<div style='color: #cc8855; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem;'>Danger Zone</div>", unsafe_allow_html=True)
-    
-                # Initialize session state for delete confirmation
-                if f"confirm_delete_{booking['booking_id']}" not in st.session_state:
-                    st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
-    
-                if not st.session_state[f"confirm_delete_{booking['booking_id']}"]:
-                    if st.button("Delete Booking", key=f"del_{booking['booking_id']}", use_container_width=True, type="secondary"):
-                        st.session_state[f"confirm_delete_{booking['booking_id']}"] = True
-                        st.rerun()
-                else:
-                    st.warning("Are you sure? This action cannot be undone.")
-                    col_confirm1, col_confirm2 = st.columns(2)
-                    with col_confirm1:
-                        if st.button("Yes, Delete", key=f"confirm_del_{booking['booking_id']}", use_container_width=True):
-                            if delete_booking(booking['booking_id']):
-                                st.success("Booking deleted successfully!")
-                                st.cache_data.clear()
-                                st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
-                                st.rerun()
-                    with col_confirm2:
-                        if st.button("Cancel", key=f"cancel_del_{booking['booking_id']}", use_container_width=True):
-                            st.session_state[f"confirm_delete_{booking['booking_id']}"] = False
-                            st.rerun()
-    
-    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
     st.markdown("#### Export Options")
     col1, col2, col3, col4 = st.columns(4)
     
