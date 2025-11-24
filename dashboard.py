@@ -563,12 +563,6 @@ with tab1:
             selected_tee_times = booking.get('selected_tee_times', None)
             tee_times_section_html = ""
 
-            # DEBUG
-            st.write(f"DEBUG - Booking {booking['booking_id']}")
-            st.write(f"DEBUG - Status: {current_status}")
-            st.write(f"DEBUG - selected_tee_times: {selected_tee_times}")
-            st.write(f"DEBUG - Type: {type(selected_tee_times)}")
-
             # Only show detailed tee times for status "Requested" or later
             show_tee_times = current_status in ['Requested', 'Confirmed', 'Booked']
 
@@ -580,110 +574,76 @@ with tab1:
                 len(selected_tee_times) > 0
             )
 
-            st.write(f"DEBUG - show_tee_times: {show_tee_times}, has_tee_times: {has_tee_times}")
-
             if show_tee_times and has_tee_times:
-                st.write(f"DEBUG - ENTERING tee times display block")
                 try:
-                    # Data is already a list from PostgreSQL JSONB
-                    tee_times_data = selected_tee_times
-
                     # Build tee times display - replacing the basic blue section
                     tee_times_rows = ""
                     total_golf_cost = 0
 
-                    for i, tee_time in enumerate(tee_times_data):
-                        round_num = i + 1
-                        round_label = f"Round {round_num}" if len(tee_times_data) > 1 else ""
+                    for i, tee_time in enumerate(selected_tee_times):
+                        # Extract data from each tee time entry
+                        round_date = tee_time.get('date', booking['date'].strftime('%b %d, %Y'))
+                        round_time = tee_time.get('time', tee_time_display)
+                        round_course = tee_time.get('course_name', '')
+                        round_players = tee_time.get('players', booking['players'])
+                        round_cost = tee_time.get('total_cost', None)
 
-                        # Get data from dict
-                        date_str = tee_time.get('date', booking['date'].strftime('%b %d, %Y'))
-                        time_str = tee_time.get('time', tee_time_display)
-                        course_name = tee_time.get('course_name', '')
-                        players = tee_time.get('players', booking['players'])
-                        total_cost = tee_time.get('total_cost', None)
-
-                        # Add to total golf cost
-                        if total_cost is not None and total_cost > 0:
-                            total_golf_cost += float(total_cost)
-                        elif len(tee_times_data) == 1:
-                            total_golf_cost += booking['total']
-                        else:
-                            # Add estimated per-round cost
-                            total_golf_cost += booking['total'] / len(tee_times_data)
-
-                        # Build row for this tee time
-                        round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ {html.escape(round_label)}</div>" if round_label else ""
-
-                        # Build columns based on available data
-                        columns = []
-
-                        # Date column
-                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(date_str))}</div></div>")
-
-                        # Time column
-                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(time_str))}</div></div>")
-
-                        # Course column (optional)
-                        if course_name:
-                            columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(course_name))}</div></div>")
-
-                        # Players column
-                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(players)}</div></div>")
-
-                        # Round cost column (always show actual amounts)
-                        # Use total_cost from tee time data if available
-                        if total_cost is not None and total_cost > 0:
-                            cost_display = f"${float(total_cost):,.2f}"
-                        elif len(tee_times_data) == 1:
+                        # Calculate cost display
+                        if round_cost is not None and round_cost > 0:
+                            cost_display = f"${float(round_cost):,.2f}"
+                            total_golf_cost += float(round_cost)
+                        elif len(selected_tee_times) == 1:
                             # Single round - use booking total
                             cost_display = f"${booking['total']:,.2f}"
+                            total_golf_cost = booking['total']
                         else:
-                            # Multi-round package - estimate per round cost
-                            # Use booking total divided by number of rounds as estimate
-                            estimated_per_round = booking['total'] / len(tee_times_data)
-                            cost_display = f"${estimated_per_round:,.2f}"
+                            # Multi-round - divide total evenly
+                            per_round = booking['total'] / len(selected_tee_times)
+                            cost_display = f"${per_round:,.2f}"
+                            total_golf_cost += per_round
 
-                        columns.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>{cost_display}</div></div>")
+                        # Round header (only for multi-round bookings)
+                        round_header = ""
+                        if len(selected_tee_times) > 1:
+                            round_header = f"<div style='grid-column: 1 / -1; color: #6b7c3f; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(107, 124, 63, 0.3);'>⛳ Round {i + 1}</div>"
 
-                        # Determine grid columns based on number of columns
-                        num_cols = len(columns)
-                        grid_cols = f"repeat({num_cols}, 1fr)"
+                        # Build columns
+                        cols = []
+                        cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(round_date))}</div></div>")
+                        cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(round_time))}</div></div>")
 
-                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_cols}; gap: 1.5rem; margin-bottom: {'0.5rem' if i < len(tee_times_data) - 1 else '1rem'};'>{''.join(columns)}</div>"
+                        if round_course:
+                            cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>COURSE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{html.escape(str(round_course))}</div></div>")
 
-                    # Add summary totals section
-                    summary_html = ""
+                        cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{int(round_players)}</div></div>")
+                        cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>ROUND COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>{cost_display}</div></div>")
+
+                        # Build grid
+                        grid_template = f"repeat({len(cols)}, 1fr)"
+                        margin = "0.5rem" if i < len(selected_tee_times) - 1 else "1rem"
+                        tee_times_rows += f"{round_header}<div style='display: grid; grid-template-columns: {grid_template}; gap: 1.5rem; margin-bottom: {margin};'>{''.join(cols)}</div>"
+
+                    # Add summary totals
                     lodging_cost = booking.get('lodging_cost', None)
 
-                    # Determine golf cost for display
-                    if total_golf_cost > 0:
-                        golf_cost_display = total_golf_cost
-                    else:
-                        # Use booking total as fallback
-                        golf_cost_display = booking['total']
-
-                    # Build summary columns
                     summary_cols = []
-                    summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL GOLF COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${golf_cost_display:,.2f}</div></div>")
+                    summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL GOLF COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${total_golf_cost:,.2f}</div></div>")
 
                     if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
                         summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL LODGING COST</div><div style='font-size: 1.5rem; font-weight: 700; color: #cc8855;'>${float(lodging_cost):,.2f}</div></div>")
-
-                    # Grand total
-                    grand_total = golf_cost_display
-                    if lodging_cost and not pd.isna(lodging_cost) and float(lodging_cost) > 0:
-                        grand_total += float(lodging_cost)
+                        grand_total = total_golf_cost + float(lodging_cost)
+                    else:
+                        grand_total = total_golf_cost
 
                     summary_cols.append(f"<div><div class='data-label' style='margin-bottom: 0.5rem;'>GRAND TOTAL</div><div style='font-size: 1.75rem; font-weight: 700; color: #f7f5f2;'>${grand_total:,.2f}</div></div>")
 
-                    summary_grid_cols = f"repeat({len(summary_cols)}, 1fr)"
-                    summary_html = f"<div style='margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #6b7c3f;'><div style='display: grid; grid-template-columns: {summary_grid_cols}; gap: 1.5rem;'>{''.join(summary_cols)}</div></div>"
+                    summary_grid = f"repeat({len(summary_cols)}, 1fr)"
+                    summary_html = f"<div style='margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #6b7c3f;'><div style='display: grid; grid-template-columns: {summary_grid}; gap: 1.5rem;'>{''.join(summary_cols)}</div></div>"
 
                     tee_times_section_html = tee_times_rows + summary_html
 
-                except (TypeError, ValueError, KeyError) as e:
-                    # If JSON parsing fails, use basic display
+                except Exception as e:
+                    # Fallback to basic display on any error
                     tee_times_section_html = f"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1rem;'><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE DATE</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['date'].strftime('%b %d, %Y')}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TEE TIME</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{tee_time_display}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>PLAYERS</div><div style='font-size: 1rem; font-weight: 600; color: #f7f5f2;'>{booking['players']}</div></div><div><div class='data-label' style='margin-bottom: 0.5rem;'>TOTAL</div><div style='font-size: 1.5rem; font-weight: 700; color: #6b7c3f;'>${booking['total']:,.2f}</div></div></div>"
             else:
                 # Basic display for non-Requested status or no tee times data
