@@ -928,7 +928,7 @@ with tab2:
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
                     <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Total Revenue</div>
-                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>£{total_revenue:,.0f}</div>
+                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>${total_revenue:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -937,7 +937,7 @@ with tab2:
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
                     <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Avg Booking Value</div>
-                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>£{avg_booking_value:,.0f}</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>${avg_booking_value:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -1002,7 +1002,7 @@ with tab2:
                     <div style='background: #0d2847; border: 2px solid #997424; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
                         <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
                             <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>{status}</div>
-                            <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>£{revenue:,.0f}</div>
+                            <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>${revenue:,.0f}</div>
                         </div>
                         <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
                             <div style='background: linear-gradient(90deg, #10b981, #997424); height: 100%; width: {bar_width}%;'></div>
@@ -1044,7 +1044,7 @@ with tab2:
                                 <span style='color: #fffefe; font-weight: 600; font-size: 0.75rem;'>{int(row['Bookings'])}</span>
                             </div>
                         </div>
-                        <div style='color: #10b981; font-weight: 700; min-width: 80px; text-align: right; font-size: 0.875rem;'>£{row['Revenue']:,.0f}</div>
+                        <div style='color: #10b981; font-weight: 700; min-width: 80px; text-align: right; font-size: 0.875rem;'>${row['Revenue']:,.0f}</div>
                     </div>
                 """, unsafe_allow_html=True)
         else:
@@ -1156,8 +1156,8 @@ with tab2:
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 12px; padding: 1.5rem; text-align: center;'>
                     <div style='color: #fffefe; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Hotel Revenue</div>
-                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>£{total_hotel_revenue:,.0f}</div>
-                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>Avg: £{avg_lodging_cost:,.0f}</div>
+                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>${total_hotel_revenue:,.0f}</div>
+                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>Avg: ${avg_lodging_cost:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -1197,7 +1197,7 @@ with tab2:
                 <div style='background: #0d2847; border: 2px solid #997424; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
                         <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>⛳ Golf Revenue</div>
-                        <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>£{hotel_golf_revenue:,.0f}</div>
+                        <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>${hotel_golf_revenue:,.0f}</div>
                     </div>
                     <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
                         <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {golf_revenue_percentage}%;'></div>
@@ -1211,7 +1211,7 @@ with tab2:
                 <div style='background: #0d2847; border: 2px solid #cc8855; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
                         <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>🏨 Hotel Revenue</div>
-                        <div style='color: #cc8855; font-weight: 700; font-size: 1.125rem;'>£{total_hotel_revenue:,.0f}</div>
+                        <div style='color: #cc8855; font-weight: 700; font-size: 1.125rem;'>${total_hotel_revenue:,.0f}</div>
                     </div>
                     <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
                         <div style='background: linear-gradient(90deg, #cc8855, #a86d44); height: 100%; width: {hotel_revenue_percentage}%;'></div>
@@ -1224,7 +1224,7 @@ with tab2:
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #3a5a40 0%, #2d4a32 100%); border: 2px solid #10b981; border-radius: 8px; padding: 1rem; text-align: center;'>
                     <div style='color: rgba(255,255,255,0.8); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;'>Total Package Revenue</div>
-                    <div style='color: #10b981; font-size: 2rem; font-weight: 700;'>£{total_package_revenue:,.0f}</div>
+                    <div style='color: #10b981; font-size: 2rem; font-weight: 700;'>${total_package_revenue:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -1404,7 +1404,7 @@ with tab2:
                     # Summary sheet
                     summary_data = {
                         'Metric': ['Total Bookings', 'Total Revenue', 'Avg Booking Value', 'Total Players'],
-                        'Value': [total_bookings, f"£{total_revenue:,.2f}", f"£{avg_booking_value:,.2f}", int(total_players)]
+                        'Value': [total_bookings, f"${total_revenue:,.2f}", f"${avg_booking_value:,.2f}", int(total_players)]
                     }
                     pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='Summary')
 
@@ -1425,14 +1425,14 @@ with tab2:
                         'Value': [
                             total_hotel_bookings,
                             f"{hotel_attachment_rate:.1f}%",
-                            f"£{total_hotel_revenue:,.2f}",
-                            f"£{avg_lodging_cost:,.2f}",
+                            f"${total_hotel_revenue:,.2f}",
+                            f"${avg_lodging_cost:,.2f}",
                             f"{avg_nights:.1f}",
                             int(total_room_nights),
                             f"{avg_rooms:.1f}",
-                            f"£{total_package_revenue:,.2f}",
-                            f"£{hotel_golf_revenue:,.2f}",
-                            f"£{total_hotel_revenue:,.2f}"
+                            f"${total_package_revenue:,.2f}",
+                            f"${hotel_golf_revenue:,.2f}",
+                            f"${total_hotel_revenue:,.2f}"
                         ]
                     }
                     pd.DataFrame(hotel_summary_data).to_excel(writer, index=False, sheet_name='Hotel Summary')
