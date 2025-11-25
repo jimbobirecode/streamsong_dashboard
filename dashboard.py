@@ -1179,7 +1179,7 @@ with tab2:
         export_col1, export_col2, export_col3 = st.columns(3)
 
         with export_col1:
-            if st.button("Export Full Report (Excel)", use_container_width=True):
+            if st.button("Export Full Report (Excel)", key="analytics_export_excel", use_container_width=True):
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     # Summary sheet
@@ -1203,22 +1203,24 @@ with tab2:
                     data=output.getvalue(),
                     file_name=f"analytics_report_{datetime.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    use_container_width=True,
+                    key="analytics_download_excel"
                 )
 
         with export_col2:
-            if st.button("Export Summary (CSV)", use_container_width=True):
+            if st.button("Export Summary (CSV)", key="analytics_export_csv", use_container_width=True):
                 summary_csv = analysis_df.to_csv(index=False)
                 st.download_button(
                     label="Download CSV",
                     data=summary_csv,
                     file_name=f"analytics_summary_{datetime.now().strftime('%Y%m%d')}.csv",
                     mime="text/csv",
-                    use_container_width=True
+                    use_container_width=True,
+                    key="analytics_download_csv"
                 )
 
         with export_col3:
-            if st.button("Refresh Analytics", use_container_width=True):
+            if st.button("Refresh Analytics", key="analytics_refresh", use_container_width=True):
                 st.cache_data.clear()
                 st.rerun()
 
