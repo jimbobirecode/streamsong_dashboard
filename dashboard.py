@@ -1111,6 +1111,225 @@ with tab2:
         st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
         # ========================================
+        # HOTEL BOOKING ANALYTICS
+        # ========================================
+        st.markdown("### Hotel Booking Analytics")
+
+        # Filter hotel bookings
+        hotel_bookings = analysis_df[analysis_df['hotel_required'] == True].copy()
+        non_hotel_bookings = analysis_df[analysis_df['hotel_required'] == False].copy()
+
+        # Calculate hotel metrics
+        total_hotel_bookings = len(hotel_bookings)
+        hotel_attachment_rate = (total_hotel_bookings / len(analysis_df) * 100) if len(analysis_df) > 0 else 0
+
+        # Handle NaN values for lodging_cost
+        hotel_bookings_with_cost = hotel_bookings[hotel_bookings['lodging_cost'].notna()]
+        total_hotel_revenue = hotel_bookings_with_cost['lodging_cost'].sum()
+        avg_lodging_cost = hotel_bookings_with_cost['lodging_cost'].mean() if len(hotel_bookings_with_cost) > 0 else 0
+
+        # Calculate golf revenue for hotel bookings
+        hotel_golf_revenue = hotel_bookings['total'].sum() - total_hotel_revenue
+
+        # Occupancy metrics
+        hotel_bookings_with_nights = hotel_bookings[hotel_bookings['lodging_nights'].notna()]
+        avg_nights = hotel_bookings_with_nights['lodging_nights'].mean() if len(hotel_bookings_with_nights) > 0 else 0
+        total_room_nights = hotel_bookings_with_nights['lodging_nights'].sum() if len(hotel_bookings_with_nights) > 0 else 0
+
+        hotel_bookings_with_rooms = hotel_bookings[hotel_bookings['lodging_rooms'].notna()]
+        avg_rooms = hotel_bookings_with_rooms['lodging_rooms'].mean() if len(hotel_bookings_with_rooms) > 0 else 0
+
+        # Hotel overview metrics
+        st.markdown("#### Hotel Booking Overview")
+        hotel_metric_col1, hotel_metric_col2, hotel_metric_col3, hotel_metric_col4 = st.columns(4)
+
+        with hotel_metric_col1:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #fffefe; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Hotel Bookings</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>{total_hotel_bookings}</div>
+                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>{hotel_attachment_rate:.1f}% of all bookings</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with hotel_metric_col2:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #fffefe; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Hotel Revenue</div>
+                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>£{total_hotel_revenue:,.0f}</div>
+                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>Avg: £{avg_lodging_cost:,.0f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with hotel_metric_col3:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #fffefe; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Avg Nights</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>{avg_nights:.1f}</div>
+                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>Total: {int(total_room_nights)} nights</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with hotel_metric_col4:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #fffefe; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Avg Rooms</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>{avg_rooms:.1f}</div>
+                    <div style='color: rgba(255,254,254,0.8); font-size: 0.75rem; margin-top: 0.5rem;'>per booking</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 1px; background: rgba(153, 116, 36, 0.3); margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+
+        # Revenue comparison and room type analytics
+        hotel_col1, hotel_col2 = st.columns(2)
+
+        with hotel_col1:
+            st.markdown("#### Revenue Breakdown: Golf vs Hotel")
+
+            # Calculate total revenue from hotel bookings
+            total_package_revenue = hotel_bookings['total'].sum()
+            hotel_revenue_percentage = (total_hotel_revenue / total_package_revenue * 100) if total_package_revenue > 0 else 0
+            golf_revenue_percentage = (hotel_golf_revenue / total_package_revenue * 100) if total_package_revenue > 0 else 0
+
+            # Golf revenue bar
+            st.markdown(f"""
+                <div style='background: #0d2847; border: 2px solid #997424; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                        <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>⛳ Golf Revenue</div>
+                        <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>£{hotel_golf_revenue:,.0f}</div>
+                    </div>
+                    <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
+                        <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {golf_revenue_percentage}%;'></div>
+                    </div>
+                    <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.25rem;'>{golf_revenue_percentage:.1f}% of package revenue</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Hotel revenue bar
+            st.markdown(f"""
+                <div style='background: #0d2847; border: 2px solid #cc8855; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                        <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>🏨 Hotel Revenue</div>
+                        <div style='color: #cc8855; font-weight: 700; font-size: 1.125rem;'>£{total_hotel_revenue:,.0f}</div>
+                    </div>
+                    <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
+                        <div style='background: linear-gradient(90deg, #cc8855, #a86d44); height: 100%; width: {hotel_revenue_percentage}%;'></div>
+                    </div>
+                    <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.25rem;'>{hotel_revenue_percentage:.1f}% of package revenue</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Total package revenue
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #3a5a40 0%, #2d4a32 100%); border: 2px solid #10b981; border-radius: 8px; padding: 1rem; text-align: center;'>
+                    <div style='color: rgba(255,255,255,0.8); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;'>Total Package Revenue</div>
+                    <div style='color: #10b981; font-size: 2rem; font-weight: 700;'>£{total_package_revenue:,.0f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with hotel_col2:
+            st.markdown("#### Popular Room Types")
+
+            # Get room type distribution
+            hotel_with_room_type = hotel_bookings[hotel_bookings['lodging_room_type'].notna()]
+
+            if len(hotel_with_room_type) > 0:
+                room_type_counts = hotel_with_room_type['lodging_room_type'].value_counts()
+                max_room_count = room_type_counts.max()
+
+                for room_type, count in room_type_counts.head(8).items():
+                    bar_width = (count / max_room_count * 100) if max_room_count > 0 else 0
+                    percentage = (count / len(hotel_with_room_type) * 100)
+
+                    st.markdown(f"""
+                        <div style='background: #0d2847; border: 1px solid #cc8855; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                                <div style='color: #fffefe; font-weight: 600; font-size: 0.875rem;'>{room_type}</div>
+                                <div style='color: #cc8855; font-weight: 700;'>{int(count)}</div>
+                            </div>
+                            <div style='background: #081c3c; border-radius: 3px; height: 6px; overflow: hidden;'>
+                                <div style='background: linear-gradient(90deg, #cc8855, #a86d44); height: 100%; width: {bar_width}%;'></div>
+                            </div>
+                            <div style='color: #64748b; font-size: 0.7rem; margin-top: 0.25rem;'>{percentage:.1f}% of hotel bookings</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No room type data available")
+
+        st.markdown("<div style='height: 1px; background: rgba(153, 116, 36, 0.3); margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+
+        # Hotel vs Non-Hotel comparison and occupancy distribution
+        hotel_col3, hotel_col4 = st.columns(2)
+
+        with hotel_col3:
+            st.markdown("#### Hotel vs Non-Hotel Bookings")
+
+            hotel_count = len(hotel_bookings)
+            non_hotel_count = len(non_hotel_bookings)
+            total_count = len(analysis_df)
+
+            # Hotel bookings
+            hotel_percentage = (hotel_count / total_count * 100) if total_count > 0 else 0
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #cc8855 0%, #a86d44 100%); border: 2px solid #fffefe; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
+                        <div style='color: #fffefe; font-weight: 700; font-size: 1.125rem;'>🏨 With Hotel</div>
+                        <div style='color: #fffefe; font-weight: 700; font-size: 1.5rem;'>{hotel_count}</div>
+                    </div>
+                    <div style='background: rgba(8, 28, 60, 0.5); border-radius: 6px; height: 12px; overflow: hidden;'>
+                        <div style='background: #fffefe; height: 100%; width: {hotel_percentage}%;'></div>
+                    </div>
+                    <div style='color: rgba(255,254,254,0.9); font-size: 0.75rem; margin-top: 0.5rem;'>{hotel_percentage:.1f}% of all bookings</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Non-hotel bookings
+            non_hotel_percentage = (non_hotel_count / total_count * 100) if total_count > 0 else 0
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #0d2847 0%, #081c3c 100%); border: 2px solid #997424; border-radius: 8px; padding: 1.25rem;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
+                        <div style='color: #fffefe; font-weight: 700; font-size: 1.125rem;'>⛳ Golf Only</div>
+                        <div style='color: #997424; font-weight: 700; font-size: 1.5rem;'>{non_hotel_count}</div>
+                    </div>
+                    <div style='background: #081c3c; border-radius: 6px; height: 12px; overflow: hidden;'>
+                        <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {non_hotel_percentage}%;'></div>
+                    </div>
+                    <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.5rem;'>{non_hotel_percentage:.1f}% of all bookings</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with hotel_col4:
+            st.markdown("#### Lodging Nights Distribution")
+
+            if len(hotel_bookings_with_nights) > 0:
+                nights_distribution = hotel_bookings_with_nights['lodging_nights'].value_counts().sort_index()
+                max_nights_count = nights_distribution.max()
+
+                for nights, count in nights_distribution.items():
+                    bar_width = (count / max_nights_count * 100) if max_nights_count > 0 else 0
+                    percentage = (count / len(hotel_bookings_with_nights) * 100)
+
+                    night_label = f"{int(nights)} night" if nights == 1 else f"{int(nights)} nights"
+
+                    st.markdown(f"""
+                        <div style='background: #0d2847; border: 1px solid #997424; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                                <div style='color: #fffefe; font-weight: 600;'>{night_label}</div>
+                                <div style='color: #997424; font-weight: 700;'>{int(count)} bookings</div>
+                            </div>
+                            <div style='background: #081c3c; border-radius: 3px; height: 6px; overflow: hidden;'>
+                                <div style='background: #997424; height: 100%; width: {bar_width}%;'></div>
+                            </div>
+                            <div style='color: #64748b; font-size: 0.7rem; margin-top: 0.25rem;'>{percentage:.1f}% of stays</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No lodging nights data available")
+
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
         # PEAK BOOKING TIMES
         # ========================================
         st.markdown("### Peak Booking Times")
@@ -1188,6 +1407,49 @@ with tab2:
                         'Value': [total_bookings, f"£{total_revenue:,.2f}", f"£{avg_booking_value:,.2f}", int(total_players)]
                     }
                     pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='Summary')
+
+                    # Hotel analytics summary
+                    hotel_summary_data = {
+                        'Metric': [
+                            'Hotel Bookings',
+                            'Hotel Attachment Rate',
+                            'Total Hotel Revenue',
+                            'Avg Lodging Cost',
+                            'Avg Nights per Stay',
+                            'Total Room Nights',
+                            'Avg Rooms per Booking',
+                            'Total Package Revenue',
+                            'Golf Revenue (Hotel Bookings)',
+                            'Hotel Revenue (Hotel Bookings)'
+                        ],
+                        'Value': [
+                            total_hotel_bookings,
+                            f"{hotel_attachment_rate:.1f}%",
+                            f"£{total_hotel_revenue:,.2f}",
+                            f"£{avg_lodging_cost:,.2f}",
+                            f"{avg_nights:.1f}",
+                            int(total_room_nights),
+                            f"{avg_rooms:.1f}",
+                            f"£{total_package_revenue:,.2f}",
+                            f"£{hotel_golf_revenue:,.2f}",
+                            f"£{total_hotel_revenue:,.2f}"
+                        ]
+                    }
+                    pd.DataFrame(hotel_summary_data).to_excel(writer, index=False, sheet_name='Hotel Summary')
+
+                    # Room type distribution
+                    if len(hotel_with_room_type) > 0:
+                        room_type_data = hotel_with_room_type['lodging_room_type'].value_counts().reset_index()
+                        room_type_data.columns = ['Room Type', 'Count']
+                        room_type_data['Percentage'] = (room_type_data['Count'] / len(hotel_with_room_type) * 100).round(1)
+                        room_type_data.to_excel(writer, index=False, sheet_name='Room Types')
+
+                    # Lodging nights distribution
+                    if len(hotel_bookings_with_nights) > 0:
+                        nights_data = hotel_bookings_with_nights['lodging_nights'].value_counts().sort_index().reset_index()
+                        nights_data.columns = ['Nights', 'Count']
+                        nights_data['Percentage'] = (nights_data['Count'] / len(hotel_bookings_with_nights) * 100).round(1)
+                        nights_data.to_excel(writer, index=False, sheet_name='Lodging Nights')
 
                     # Status distribution
                     status_summary_df.to_excel(writer, index=False, sheet_name='Status Distribution')
