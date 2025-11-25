@@ -847,97 +847,380 @@ with tab1:
 
 with tab2:
     st.markdown("""
-        <h2 style='margin-bottom: 0.5rem;'>Analytics</h2>
-        <p style='color: #d4b896; margin-bottom: 1rem; font-size: 0.9375rem;'>Booking trends and performance metrics</p>
+        <h2 style='margin-bottom: 0.5rem;'>Reports & Analytics</h2>
+        <p style='color: #997424; margin-bottom: 1.5rem; font-size: 0.9375rem;'>Comprehensive insights into your booking performance</p>
     """, unsafe_allow_html=True)
 
-    # Load data for analytics
-    df_analytics, _ = load_bookings_from_db(st.session_state.customer_id)
+    # Load all bookings for analytics
+    df_analytics, source = load_bookings_from_db(st.session_state.customer_id)
 
-    if not df_analytics.empty:
-        # Metrics row
+    if df_analytics.empty:
+        st.info("No booking data available for analytics")
+    else:
+        # Date range selector for analytics
+        st.markdown("### Analysis Period")
+        col_range1, col_range2 = st.columns([1, 3])
+
+        with col_range1:
+            analysis_period = st.selectbox(
+                "Period",
+                ["Last 7 Days", "Last 30 Days", "Last 90 Days", "Last 6 Months", "Last Year", "All Time", "Custom"],
+                index=1
+            )
+
+        with col_range2:
+            if analysis_period == "Last 7 Days":
+                analysis_start = datetime.now() - timedelta(days=7)
+                analysis_end = datetime.now()
+            elif analysis_period == "Last 30 Days":
+                analysis_start = datetime.now() - timedelta(days=30)
+                analysis_end = datetime.now()
+            elif analysis_period == "Last 90 Days":
+                analysis_start = datetime.now() - timedelta(days=90)
+                analysis_end = datetime.now()
+            elif analysis_period == "Last 6 Months":
+                analysis_start = datetime.now() - timedelta(days=180)
+                analysis_end = datetime.now()
+            elif analysis_period == "Last Year":
+                analysis_start = datetime.now() - timedelta(days=365)
+                analysis_end = datetime.now()
+            elif analysis_period == "All Time":
+                analysis_start = df_analytics['timestamp'].min()
+                analysis_end = datetime.now()
+            else:  # Custom
+                custom_range = st.date_input(
+                    "Custom Range",
+                    value=(datetime.now().date() - timedelta(days=30), datetime.now().date())
+                )
+                if isinstance(custom_range, tuple) and len(custom_range) == 2:
+                    analysis_start = pd.to_datetime(custom_range[0])
+                    analysis_end = pd.to_datetime(custom_range[1])
+                else:
+                    analysis_start = datetime.now() - timedelta(days=30)
+                    analysis_end = datetime.now()
+
+        # Filter data by analysis period
+        analysis_df = df_analytics[
+            (df_analytics['timestamp'] >= pd.to_datetime(analysis_start)) &
+            (df_analytics['timestamp'] <= pd.to_datetime(analysis_end))
+        ].copy()
+
+        st.markdown("<div style='height: 2px; background: #997424; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
+        # KEY METRICS OVERVIEW
+        # ========================================
+        st.markdown("### Key Metrics")
+
         metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
         with metric_col1:
-            total_bookings = len(df_analytics)
+            total_bookings = len(analysis_df)
             st.markdown(f"""
-                <div class='metric-card'>
-                    <div class='data-label'>TOTAL BOOKINGS</div>
-                    <div style='font-size: 2rem; font-weight: 700; color: #f7f5f2; margin-top: 0.5rem;'>{total_bookings}</div>
+                <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Total Bookings</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>{total_bookings}</div>
                 </div>
             """, unsafe_allow_html=True)
 
         with metric_col2:
-            booked_count = len(df_analytics[df_analytics['status'] == 'Booked'])
+            total_revenue = analysis_df['total'].sum()
             st.markdown(f"""
-                <div class='metric-card'>
-                    <div class='data-label'>CONFIRMED BOOKINGS</div>
-                    <div style='font-size: 2rem; font-weight: 700; color: #6b7c3f; margin-top: 0.5rem;'>{booked_count}</div>
+                <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Total Revenue</div>
+                    <div style='color: #10b981; font-size: 2.5rem; font-weight: 700;'>£{total_revenue:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
         with metric_col3:
-            total_revenue = df_analytics[df_analytics['status'] == 'Booked']['total'].sum()
+            avg_booking_value = analysis_df['total'].mean() if len(analysis_df) > 0 else 0
             st.markdown(f"""
-                <div class='metric-card'>
-                    <div class='data-label'>TOTAL REVENUE</div>
-                    <div style='font-size: 2rem; font-weight: 700; color: #6b7c3f; margin-top: 0.5rem;'>${total_revenue:,.2f}</div>
+                <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Avg Booking Value</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>£{avg_booking_value:,.0f}</div>
                 </div>
             """, unsafe_allow_html=True)
 
         with metric_col4:
-            conversion_rate = (booked_count / total_bookings * 100) if total_bookings > 0 else 0
+            total_players = analysis_df['players'].sum()
             st.markdown(f"""
-                <div class='metric-card'>
-                    <div class='data-label'>CONVERSION RATE</div>
-                    <div style='font-size: 2rem; font-weight: 700; color: #f7f5f2; margin-top: 0.5rem;'>{conversion_rate:.1f}%</div>
+                <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                    <div style='color: #997424; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Total Players</div>
+                    <div style='color: #fffefe; font-size: 2.5rem; font-weight: 700;'>{int(total_players)}</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
 
-        # Status breakdown
-        st.markdown("### Booking Status Breakdown")
-        status_counts = df_analytics['status'].value_counts()
+        # ========================================
+        # BOOKING STATUS DISTRIBUTION
+        # ========================================
+        col_charts1, col_charts2 = st.columns(2)
 
-        status_col1, status_col2, status_col3 = st.columns(3)
+        with col_charts1:
+            st.markdown("### Booking Status Distribution")
+            status_counts = analysis_df['status'].value_counts()
 
-        with status_col1:
-            for status in ['Inquiry', 'Pending']:
-                if status in status_counts.index:
-                    count = status_counts[status]
+            status_data = []
+            for status, count in status_counts.items():
+                percentage = (count / len(analysis_df)) * 100
+                status_data.append({
+                    'Status': status,
+                    'Count': count,
+                    'Percentage': percentage
+                })
+
+            status_summary_df = pd.DataFrame(status_data)
+
+            # Display as a styled table
+            for _, row in status_summary_df.iterrows():
+                bar_width = row['Percentage']
+                st.markdown(f"""
+                    <div style='background: #0d2847; border: 2px solid #997424; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                            <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>{row['Status']}</div>
+                            <div style='color: #997424; font-weight: 700; font-size: 1.125rem;'>{int(row['Count'])}</div>
+                        </div>
+                        <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
+                            <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {bar_width}%;'></div>
+                        </div>
+                        <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.25rem;'>{row['Percentage']:.1f}% of total</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        with col_charts2:
+            st.markdown("### Revenue by Status")
+            revenue_by_status = analysis_df.groupby('status')['total'].sum().sort_values(ascending=False)
+
+            total_rev = revenue_by_status.sum()
+
+            for status, revenue in revenue_by_status.items():
+                percentage = (revenue / total_rev) * 100 if total_rev > 0 else 0
+                bar_width = percentage
+
+                st.markdown(f"""
+                    <div style='background: #0d2847; border: 2px solid #997424; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                            <div style='color: #fffefe; font-weight: 600; font-size: 1rem;'>{status}</div>
+                            <div style='color: #10b981; font-weight: 700; font-size: 1.125rem;'>£{revenue:,.0f}</div>
+                        </div>
+                        <div style='background: #081c3c; border-radius: 4px; height: 8px; overflow: hidden;'>
+                            <div style='background: linear-gradient(90deg, #10b981, #997424); height: 100%; width: {bar_width}%;'></div>
+                        </div>
+                        <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.25rem;'>{percentage:.1f}% of revenue</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
+        # BOOKING TRENDS OVER TIME
+        # ========================================
+        st.markdown("### Booking Trends Over Time")
+
+        # Group by date
+        analysis_df['booking_date'] = analysis_df['timestamp'].dt.date
+        daily_bookings = analysis_df.groupby('booking_date').agg({
+            'booking_id': 'count',
+            'total': 'sum',
+            'players': 'sum'
+        }).reset_index()
+        daily_bookings.columns = ['Date', 'Bookings', 'Revenue', 'Players']
+
+        # Create simple line chart display
+        st.markdown("#### Daily Booking Volume")
+
+        if len(daily_bookings) > 0:
+            max_bookings = daily_bookings['Bookings'].max()
+
+            for _, row in daily_bookings.tail(30).iterrows():  # Show last 30 days
+                bar_width = (row['Bookings'] / max_bookings) * 100 if max_bookings > 0 else 0
+
+                st.markdown(f"""
+                    <div style='display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;'>
+                        <div style='color: #997424; font-weight: 600; min-width: 100px; font-size: 0.875rem;'>{row['Date']}</div>
+                        <div style='flex: 1; background: #0d2847; border-radius: 4px; height: 24px; overflow: hidden; border: 1px solid #997424;'>
+                            <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {bar_width}%; display: flex; align-items: center; padding-left: 0.5rem;'>
+                                <span style='color: #fffefe; font-weight: 600; font-size: 0.75rem;'>{int(row['Bookings'])}</span>
+                            </div>
+                        </div>
+                        <div style='color: #10b981; font-weight: 700; min-width: 80px; text-align: right; font-size: 0.875rem;'>£{row['Revenue']:,.0f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No booking trend data available")
+
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
+        # CONVERSION FUNNEL
+        # ========================================
+        st.markdown("### Booking Conversion Funnel")
+
+        funnel_stages = [
+            ('Inquiry', len(analysis_df[analysis_df['status'].isin(['Inquiry', 'Pending'])])),
+            ('Requested', len(analysis_df[analysis_df['status'] == 'Requested'])),
+            ('Confirmed', len(analysis_df[analysis_df['status'] == 'Confirmed'])),
+            ('Booked', len(analysis_df[analysis_df['status'] == 'Booked']))
+        ]
+
+        total_funnel = sum([count for _, count in funnel_stages])
+
+        if total_funnel > 0:
+            for i, (stage, count) in enumerate(funnel_stages):
+                percentage = (count / total_funnel) * 100
+                bar_width = percentage
+
+                # Calculate conversion from previous stage
+                if i > 0:
+                    prev_count = funnel_stages[i-1][1]
+                    conversion = (count / prev_count) * 100 if prev_count > 0 else 0
+                    conversion_text = f"<div style='color: #64748b; font-size: 0.75rem; margin-top: 0.25rem;'>Conversion: {conversion:.1f}% from previous stage</div>"
+                else:
+                    conversion_text = ""
+
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #081c3c 0%, #0d2847 100%); border: 2px solid #997424; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;'>
+                            <div style='color: #fffefe; font-weight: 700; font-size: 1.25rem;'>{stage}</div>
+                            <div style='color: #997424; font-weight: 700; font-size: 1.5rem;'>{count}</div>
+                        </div>
+                        <div style='background: #081c3c; border-radius: 6px; height: 12px; overflow: hidden;'>
+                            <div style='background: linear-gradient(90deg, #997424, #10b981); height: 100%; width: {bar_width}%;'></div>
+                        </div>
+                        <div style='color: #64748b; font-size: 0.75rem; margin-top: 0.5rem;'>{percentage:.1f}% of total funnel volume</div>
+                        {conversion_text}
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # Overall conversion rate
+            booked_count = funnel_stages[-1][1]
+            inquiry_count = funnel_stages[0][1]
+            overall_conversion = (booked_count / inquiry_count) * 100 if inquiry_count > 0 else 0
+
+            st.markdown(f"""
+                <div style='background: #3a5a40; border: 2px solid #10b981; border-radius: 12px; padding: 1.5rem; text-align: center; margin-top: 1.5rem;'>
+                    <div style='color: #ffffff; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;'>Overall Conversion Rate</div>
+                    <div style='color: #10b981; font-size: 3rem; font-weight: 700;'>{overall_conversion:.1f}%</div>
+                    <div style='color: rgba(255,255,255,0.8); font-size: 0.875rem; margin-top: 0.5rem;'>From Inquiry to Booked</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("No funnel data available for this period")
+
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
+        # PEAK BOOKING TIMES
+        # ========================================
+        st.markdown("### Peak Booking Times")
+
+        col_peak1, col_peak2 = st.columns(2)
+
+        with col_peak1:
+            st.markdown("#### Most Popular Tee Times")
+            tee_time_popularity = analysis_df[analysis_df['tee_time'].notna()].groupby('tee_time').size().sort_values(ascending=False).head(10)
+
+            if len(tee_time_popularity) > 0:
+                max_pop = tee_time_popularity.max()
+
+                for tee_time, count in tee_time_popularity.items():
+                    bar_width = (count / max_pop) * 100 if max_pop > 0 else 0
+
                     st.markdown(f"""
-                        <div style='padding: 1rem; background: #3d5266; border-radius: 8px; border: 2px solid #87a7b3; margin-bottom: 1rem;'>
-                            <div class='data-label'>{status.upper()}</div>
-                            <div style='font-size: 1.5rem; font-weight: 700; color: #87a7b3;'>{count}</div>
+                        <div style='background: #0d2847; border: 1px solid #997424; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                                <div style='color: #fffefe; font-weight: 600;'>{tee_time}</div>
+                                <div style='color: #997424; font-weight: 700;'>{int(count)} bookings</div>
+                            </div>
+                            <div style='background: #081c3c; border-radius: 3px; height: 6px; overflow: hidden;'>
+                                <div style='background: #997424; height: 100%; width: {bar_width}%;'></div>
+                            </div>
                         </div>
                     """, unsafe_allow_html=True)
+            else:
+                st.info("No tee time data available")
 
-        with status_col2:
-            for status in ['Requested', 'Confirmed']:
-                if status in status_counts.index:
-                    count = status_counts[status]
-                    color = '#cc8855' if status == 'Requested' else '#8b9456'
+        with col_peak2:
+            st.markdown("#### Busiest Days of Week")
+            analysis_df['day_of_week'] = pd.to_datetime(analysis_df['date']).dt.day_name()
+            day_popularity = analysis_df.groupby('day_of_week').size().reindex(
+                ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                fill_value=0
+            )
+
+            if day_popularity.sum() > 0:
+                max_day = day_popularity.max()
+
+                for day, count in day_popularity.items():
+                    bar_width = (count / max_day) * 100 if max_day > 0 else 0
+
                     st.markdown(f"""
-                        <div style='padding: 1rem; background: #3d5266; border-radius: 8px; border: 2px solid {color}; margin-bottom: 1rem;'>
-                            <div class='data-label'>{status.upper()}</div>
-                            <div style='font-size: 1.5rem; font-weight: 700; color: {color};'>{count}</div>
+                        <div style='background: #0d2847; border: 1px solid #997424; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;'>
+                                <div style='color: #fffefe; font-weight: 600;'>{day}</div>
+                                <div style='color: #997424; font-weight: 700;'>{int(count)} bookings</div>
+                            </div>
+                            <div style='background: #081c3c; border-radius: 3px; height: 6px; overflow: hidden;'>
+                                <div style='background: #10b981; height: 100%; width: {bar_width}%;'></div>
+                            </div>
                         </div>
                     """, unsafe_allow_html=True)
+            else:
+                st.info("No day of week data available")
 
-        with status_col3:
-            for status in ['Booked', 'Rejected', 'Cancelled']:
-                if status in status_counts.index:
-                    count = status_counts[status]
-                    color = '#6b7c3f' if status == 'Booked' else ('#a0653f' if status == 'Rejected' else '#666666')
-                    st.markdown(f"""
-                        <div style='padding: 1rem; background: #3d5266; border-radius: 8px; border: 2px solid {color}; margin-bottom: 1rem;'>
-                            <div class='data-label'>{status.upper()}</div>
-                            <div style='font-size: 1.5rem; font-weight: 700; color: {color};'>{count}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-    else:
-        st.info("No data available for analytics")
+        st.markdown("<div style='height: 2px; background: #997424; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+        # ========================================
+        # EXPORT ANALYTICS
+        # ========================================
+        st.markdown("### Export Analytics Data")
+
+        export_col1, export_col2, export_col3 = st.columns(3)
+
+        with export_col1:
+            if st.button("Export Full Report (Excel)", use_container_width=True):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    # Summary sheet
+                    summary_data = {
+                        'Metric': ['Total Bookings', 'Total Revenue', 'Avg Booking Value', 'Total Players'],
+                        'Value': [total_bookings, f"£{total_revenue:,.2f}", f"£{avg_booking_value:,.2f}", int(total_players)]
+                    }
+                    pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='Summary')
+
+                    # Status distribution
+                    status_summary_df.to_excel(writer, index=False, sheet_name='Status Distribution')
+
+                    # Daily trends
+                    daily_bookings.to_excel(writer, index=False, sheet_name='Daily Trends')
+
+                    # Raw data
+                    analysis_df.to_excel(writer, index=False, sheet_name='Raw Data')
+
+                st.download_button(
+                    label="Download Analytics Report",
+                    data=output.getvalue(),
+                    file_name=f"analytics_report_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+        with export_col2:
+            if st.button("Export Summary (CSV)", use_container_width=True):
+                summary_csv = analysis_df.to_csv(index=False)
+                st.download_button(
+                    label="Download CSV",
+                    data=summary_csv,
+                    file_name=f"analytics_summary_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+        with export_col3:
+            if st.button("Refresh Analytics", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
 
 with tab3:
     st.markdown("""
