@@ -367,6 +367,20 @@ if page == "Bookings":
             st.cache_data.clear()
             st.rerun()
 
+    # Search by booking ref or name
+    search_col1, search_col2 = st.columns([3, 1])
+    with search_col1:
+        search_query = st.text_input(
+            "Search",
+            placeholder="Search by booking reference, guest name, or email...",
+            key="booking_search",
+            label_visibility="collapsed"
+        )
+    with search_col2:
+        if st.button("Clear Search", key="clear_search", use_container_width=True):
+            st.session_state.booking_search = ""
+            st.rerun()
+
     # Show active filter indicator
     if st.session_state.clicked_status_filter:
         st.markdown(f"""
@@ -409,6 +423,21 @@ if page == "Bookings":
         filtered_df = filtered_df[filtered_df['hotel_required'] == True]
     elif hotel_filter == "No Hotel":
         filtered_df = filtered_df[filtered_df['hotel_required'] == False]
+
+    # Handle search filtering
+    if search_query:
+        search_lower = search_query.lower().strip()
+        search_mask = (
+            filtered_df['booking_id'].astype(str).str.lower().str.contains(search_lower, na=False) |
+            filtered_df['guest_email'].astype(str).str.lower().str.contains(search_lower, na=False)
+        )
+        # Also search in guest_name if column exists
+        if 'guest_name' in filtered_df.columns:
+            search_mask = search_mask | filtered_df['guest_name'].astype(str).str.lower().str.contains(search_lower, na=False)
+        # Also search in note field for additional context
+        if 'note' in filtered_df.columns:
+            search_mask = search_mask | filtered_df['note'].astype(str).str.lower().str.contains(search_lower, na=False)
+        filtered_df = filtered_df[search_mask]
 
     col1, col2, col3, col4 = st.columns(4)
 
