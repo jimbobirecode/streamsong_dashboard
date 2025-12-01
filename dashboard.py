@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 import html
 import json
+import re
 
 # Import modular components
 from modules.auth import (
@@ -25,6 +26,26 @@ from modules.utils import (
     get_status_icon,
     get_status_color,
     generate_status_progress_bar
+)
+from modules.notify import (
+    prepare_booking_data_for_export,
+    export_to_json,
+    export_to_api_format,
+    push_to_notify_api,
+    export_notify_csv
+)
+from modules.waitlist import (
+    load_waitlist_from_db,
+    add_to_waitlist,
+    update_waitlist_status,
+    delete_waitlist_entry,
+    convert_waitlist_to_booking
+)
+from modules.analytics import (
+    calculate_lead_times,
+    calculate_customer_inquiry_frequency,
+    calculate_golf_course_popularity,
+    identify_marketing_segments
 )
 
 
@@ -247,6 +268,24 @@ with st.sidebar:
 
     st.markdown("<div style='height: 1px; background: #6b7c3f; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
+    # Navigation
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "Bookings"
+
+    nav_options = ["Bookings", "Waitlist", "Reports & Analytics", "Marketing Segmentation", "Notify Integration"]
+
+    st.radio(
+        "Select View",
+        nav_options,
+        key="current_page",
+        label_visibility="collapsed"
+    )
+
+    # Get the current page from session state
+    page = st.session_state.current_page
+
+    st.markdown("<div style='height: 1px; background: #6b7c3f; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+
     st.markdown("#### Filters")
 
     # Initialize filter state
@@ -314,10 +353,8 @@ st.markdown("""
     <h1 style='margin-bottom: 1rem;'>Streamsong Dashboard</h1>
 """, unsafe_allow_html=True)
 
-# Create tabs for different sections
-tab1, tab2, tab3 = st.tabs(["Bookings", "Analytics", "Reports"])
-
-with tab1:
+# Render page based on navigation selection
+if page == "Bookings":
     # Header with refresh button
     header_col1, header_col2 = st.columns([4, 1])
     with header_col1:
@@ -845,7 +882,7 @@ with tab1:
                 else:
                     st.info("All bookings already have tee times set")
 
-with tab2:
+elif page == "Reports & Analytics":
     st.markdown("""
         <h2 style='margin-bottom: 0.5rem;'>Reports & Analytics</h2>
         <p style='color: #997424; margin-bottom: 1.5rem; font-size: 0.9375rem;'>Comprehensive insights into your booking performance</p>
@@ -1486,7 +1523,8 @@ with tab2:
                 st.cache_data.clear()
                 st.rerun()
 
-with tab3:
+    # Reports Section (part of Reports & Analytics page)
+    st.markdown("<div style='height: 3px; background: linear-gradient(90deg, #6b7c3f, #997424); margin: 3rem 0;'></div>", unsafe_allow_html=True)
     st.markdown("""
         <h2 style='margin-bottom: 0.5rem;'>Reports</h2>
         <p style='color: #d4b896; margin-bottom: 1rem; font-size: 0.9375rem;'>Generate and export detailed reports</p>
@@ -1569,3 +1607,455 @@ with tab3:
         st.dataframe(report_df[['booking_id', 'guest_email', 'date', 'tee_time', 'players', 'hotel_required', 'total', 'status']], use_container_width=True)
     else:
         st.info("No data available for reports")
+
+# ========================================
+# WAITLIST VIEW
+# ========================================
+elif page == "Waitlist":
+    st.markdown("""
+        <h2 style='margin-bottom: 0.5rem;'>Waitlist Management</h2>
+        <p style='color: #d4b896; margin-bottom: 1.5rem;'>Manage customer waitlist for tee times</p>
+    """, unsafe_allow_html=True)
+
+    # Load waitlist
+    waitlist_df = load_waitlist_from_db(st.session_state.customer_id)
+
+    # Add new waitlist entry section
+    with st.expander("Add New Waitlist Entry", expanded=False):
+        with st.form("add_waitlist_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                guest_email = st.text_input("Guest Email *")
+                guest_name = st.text_input("Guest Name")
+                requested_date = st.date_input("Requested Date *")
+                preferred_time = st.text_input("Preferred Time", placeholder="e.g., 10:00 AM")
+            with col2:
+                time_flexibility = st.selectbox(
+                    "Time Flexibility",
+                    ["Flexible", "Morning Only", "Afternoon Only", "Specific Time Only"]
+                )
+                players = st.number_input("Number of Players", min_value=1, max_value=4, value=1)
+                golf_course = st.text_input("Golf Course", value="Streamsong Resort")
+                priority = st.slider("Priority (1=Low, 10=High)", min_value=1, max_value=10, value=5)
+
+            notes = st.text_area("Notes", placeholder="Additional information about this waitlist entry")
+
+            submitted = st.form_submit_button("Add to Waitlist", use_container_width=True)
+            if submitted:
+                if not guest_email or not requested_date:
+                    st.error("Please provide guest email and requested date")
+                else:
+                    success, waitlist_id = add_to_waitlist(
+                        guest_email, guest_name, requested_date, preferred_time,
+                        time_flexibility, players, golf_course, notes,
+                        st.session_state.customer_id, priority
+                    )
+                    if success:
+                        st.success(f"Added to waitlist! Waitlist ID: {waitlist_id}")
+                        st.cache_data.clear()
+                        st.rerun()
+
+    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+    # Display waitlist entries
+    if waitlist_df.empty:
+        st.info("No waitlist entries found")
+    else:
+        st.markdown(f"### Active Waitlist Entries ({len(waitlist_df[waitlist_df['status'] == 'Waiting'])} waiting)")
+
+        # Filter options
+        col_filter1, col_filter2 = st.columns(2)
+        with col_filter1:
+            status_filter_wl = st.multiselect(
+                "Filter by Status",
+                ["Waiting", "Notified", "Converted", "Cancelled"],
+                default=["Waiting"],
+                key="waitlist_status_filter"
+            )
+        with col_filter2:
+            date_filter_wl = st.date_input("Filter by Date Range", value=None, key="waitlist_date_filter")
+
+        # Apply filters
+        filtered_waitlist = waitlist_df.copy()
+        if status_filter_wl:
+            filtered_waitlist = filtered_waitlist[filtered_waitlist['status'].isin(status_filter_wl)]
+        if date_filter_wl:
+            if isinstance(date_filter_wl, tuple) and len(date_filter_wl) == 2:
+                filtered_waitlist = filtered_waitlist[
+                    (filtered_waitlist['requested_date'] >= pd.to_datetime(date_filter_wl[0])) &
+                    (filtered_waitlist['requested_date'] <= pd.to_datetime(date_filter_wl[1]))
+                ]
+
+        # Display waitlist cards
+        for idx, entry in filtered_waitlist.iterrows():
+            status_color = {
+                'Waiting': '#f59e0b',
+                'Notified': '#3b82f6',
+                'Converted': '#10b981',
+                'Cancelled': '#6b7280'
+            }.get(entry['status'], '#94a3b8')
+
+            card_html = f"""
+                <div style='background: linear-gradient(135deg, #3d5266 0%, #5a6f85 100%); border: 2px solid {status_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;'>
+                    <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;'>
+                        <div>
+                            <div style='color: #f7f5f2; font-size: 1.125rem; font-weight: 600;'>{entry['waitlist_id']}</div>
+                            <div style='color: #d4b896; font-size: 0.875rem; margin-top: 0.25rem;'>{entry['guest_email']}</div>
+                            {f"<div style='color: #e8e3d9; font-size: 0.875rem;'>{entry['guest_name']}</div>" if entry.get('guest_name') else ""}
+                        </div>
+                        <div style='background: {status_color}; color: #ffffff; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem;'>
+                            {entry['status']}
+                        </div>
+                    </div>
+                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem;'>
+                        <div>
+                            <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Date</div>
+                            <div style='color: #f7f5f2; font-weight: 600;'>{entry['requested_date'].strftime('%b %d, %Y') if pd.notna(entry['requested_date']) else 'Not Set'}</div>
+                        </div>
+                        <div>
+                            <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Time</div>
+                            <div style='color: #f7f5f2; font-weight: 600;'>{entry.get('preferred_time', 'Flexible')}</div>
+                        </div>
+                        <div>
+                            <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Players</div>
+                            <div style='color: #f7f5f2; font-weight: 600;'>{entry['players']}</div>
+                        </div>
+                        <div>
+                            <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Priority</div>
+                            <div style='color: #f7f5f2; font-weight: 600;'>{entry['priority']}/10</div>
+                        </div>
+                    </div>
+                    {f"<div style='background: #2d3e4f; padding: 0.75rem; border-radius: 6px; margin-top: 1rem;'><div style='color: #d4b896; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Notes</div><div style='color: #e8e3d9; font-size: 0.875rem;'>{entry['notes']}</div></div>" if entry.get('notes') else ""}
+                </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+
+            # Action buttons
+            col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+            with col_btn1:
+                if entry['status'] == 'Waiting':
+                    if st.button("Mark as Notified", key=f"notify_{entry['waitlist_id']}", use_container_width=True):
+                        if update_waitlist_status(entry['waitlist_id'], 'Notified', send_notification=True):
+                            st.success("Marked as notified!")
+                            st.cache_data.clear()
+                            st.rerun()
+            with col_btn2:
+                if entry['status'] in ['Waiting', 'Notified']:
+                    if st.button("Convert to Booking", key=f"convert_{entry['waitlist_id']}", use_container_width=True):
+                        st.session_state[f"show_convert_{entry['waitlist_id']}"] = True
+                        st.rerun()
+            with col_btn3:
+                if entry['status'] == 'Waiting':
+                    if st.button("Cancel", key=f"cancel_wl_{entry['waitlist_id']}", use_container_width=True):
+                        if update_waitlist_status(entry['waitlist_id'], 'Cancelled'):
+                            st.success("Waitlist entry cancelled")
+                            st.cache_data.clear()
+                            st.rerun()
+            with col_btn4:
+                if st.button("Delete", key=f"delete_wl_{entry['waitlist_id']}", use_container_width=True):
+                    if delete_waitlist_entry(entry['waitlist_id']):
+                        st.success("Waitlist entry deleted")
+                        st.cache_data.clear()
+                        st.rerun()
+
+            # Show conversion form if requested
+            if st.session_state.get(f"show_convert_{entry['waitlist_id']}", False):
+                with st.form(f"convert_form_{entry['waitlist_id']}"):
+                    st.markdown("#### Convert to Booking")
+                    tee_time_conv = st.text_input("Tee Time", value=entry.get('preferred_time', ''))
+                    total_amount = st.number_input("Total Amount", min_value=0.0, value=0.0)
+                    col_conv1, col_conv2 = st.columns(2)
+                    with col_conv1:
+                        submit_conv = st.form_submit_button("Confirm Conversion", use_container_width=True)
+                    with col_conv2:
+                        cancel_conv = st.form_submit_button("Cancel", use_container_width=True)
+                    if submit_conv:
+                        success, booking_id = convert_waitlist_to_booking(entry, tee_time_conv, total_amount)
+                        if success:
+                            st.success(f"Converted to booking! Booking ID: {booking_id}")
+                            st.session_state[f"show_convert_{entry['waitlist_id']}"] = False
+                            st.cache_data.clear()
+                            st.rerun()
+                    if cancel_conv:
+                        st.session_state[f"show_convert_{entry['waitlist_id']}"] = False
+                        st.rerun()
+
+# ========================================
+# MARKETING SEGMENTATION VIEW
+# ========================================
+elif page == "Marketing Segmentation":
+    st.markdown("""
+        <h2 style='margin-bottom: 0.5rem;'>Marketing Segmentation</h2>
+        <p style='color: #d4b896; margin-bottom: 1.5rem;'>Customer segments and targeted marketing opportunities</p>
+    """, unsafe_allow_html=True)
+
+    # Load bookings for segmentation
+    df, source = load_bookings_from_db(st.session_state.customer_id)
+
+    if df.empty:
+        st.info("No booking data available for segmentation")
+        st.stop()
+
+    # Calculate segments
+    segments_df = identify_marketing_segments(df)
+
+    # Summary metrics
+    st.markdown("### Segment Overview")
+    seg_col1, seg_col2, seg_col3, seg_col4 = st.columns(4)
+
+    with seg_col1:
+        high_value = len(segments_df[segments_df['Segment'] == 'High-Value Customer'])
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #ffffff; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>High-Value Customers</div>
+                <div style='color: #ffffff; font-size: 2.5rem; font-weight: 700;'>{high_value}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with seg_col2:
+        freq_non_bookers = len(segments_df[segments_df['Segment'] == 'Frequent Non-Booker'])
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #ffffff; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Frequent Non-Bookers</div>
+                <div style='color: #ffffff; font-size: 2.5rem; font-weight: 700;'>{freq_non_bookers}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with seg_col3:
+        repeat_inquirers = len(segments_df[segments_df['Segment'] == 'Repeat Inquirer'])
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #ffffff; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Repeat Inquirers</div>
+                <div style='color: #ffffff; font-size: 2.5rem; font-weight: 700;'>{repeat_inquirers}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with seg_col4:
+        converted = len(segments_df[segments_df['Segment'] == 'Converted Customer'])
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #ffffff; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Converted Customers</div>
+                <div style='color: #ffffff; font-size: 2.5rem; font-weight: 700;'>{converted}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+    # Filter by segment
+    st.markdown("### Detailed Segment Analysis")
+    segment_filter = st.multiselect(
+        "Filter by Segment",
+        segments_df['Segment'].unique().tolist(),
+        default=segments_df['Segment'].unique().tolist(),
+        key="segment_filter"
+    )
+
+    filtered_segments = segments_df[segments_df['Segment'].isin(segment_filter)]
+
+    # Display segments
+    for _, segment in filtered_segments.iterrows():
+        priority_color = {
+            'VIP': '#10b981',
+            'High': '#ef4444',
+            'Medium': '#f59e0b',
+            'Standard': '#3b82f6',
+            'Low': '#6b7280'
+        }.get(segment['Priority'], '#94a3b8')
+
+        # Escape all text fields for safe HTML rendering
+        customer_email = html.escape(str(segment['Customer Email']))
+        segment_name = html.escape(str(segment['Segment']))
+        priority = html.escape(str(segment['Priority']))
+        recommended_action = html.escape(str(segment['Recommended Action']))
+
+        card_html = f"""
+            <div style='background: linear-gradient(135deg, #3d5266 0%, #5a6f85 100%); border: 2px solid {priority_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;'>
+                <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;'>
+                    <div>
+                        <div style='color: #f7f5f2; font-size: 1.125rem; font-weight: 600;'>{customer_email}</div>
+                        <div style='color: #d4b896; font-size: 0.875rem; margin-top: 0.25rem;'>{segment_name}</div>
+                    </div>
+                    <div style='background: {priority_color}; color: #ffffff; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem;'>
+                        {priority} Priority
+                    </div>
+                </div>
+                <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem;'>
+                    <div>
+                        <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Total Contacts</div>
+                        <div style='color: #f7f5f2; font-weight: 600; font-size: 1.25rem;'>{int(segment['Total Contacts'])}</div>
+                    </div>
+                    <div>
+                        <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Bookings</div>
+                        <div style='color: #f7f5f2; font-weight: 600; font-size: 1.25rem;'>{int(segment['Completed Bookings'])}</div>
+                    </div>
+                    <div>
+                        <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Revenue</div>
+                        <div style='color: #10b981; font-weight: 700; font-size: 1.25rem;'>${segment['Total Revenue']:,.0f}</div>
+                    </div>
+                    <div>
+                        <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;'>Last Contact</div>
+                        <div style='color: #f7f5f2; font-weight: 600;'>{segment['Last Contact'].strftime('%b %d, %Y') if pd.notna(segment['Last Contact']) else 'N/A'}</div>
+                    </div>
+                </div>
+                <div style='background: #2d3e4f; padding: 0.75rem; border-radius: 6px;'>
+                    <div style='color: #d4b896; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Recommended Action</div>
+                    <div style='color: #e8e3d9; font-size: 0.875rem;'>{recommended_action}</div>
+                </div>
+            </div>
+        """
+        st.markdown(card_html, unsafe_allow_html=True)
+
+    # Export segments
+    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+    st.markdown("### Export Segments")
+
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        if st.button("Export All Segments (CSV)", use_container_width=True, key="export_all_segments"):
+            csv_data = filtered_segments.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv_data,
+                file_name=f"marketing_segments_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_segments_csv"
+            )
+
+    with col_exp2:
+        if st.button("Export High Priority Only", use_container_width=True, key="export_high_priority"):
+            high_priority = filtered_segments[filtered_segments['Priority'].isin(['VIP', 'High'])]
+            csv_data = high_priority.to_csv(index=False)
+            st.download_button(
+                label="Download High Priority CSV",
+                data=csv_data,
+                file_name=f"high_priority_segments_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_high_priority_csv"
+            )
+
+# ========================================
+# NOTIFY INTEGRATION VIEW
+# ========================================
+elif page == "Notify Integration":
+    st.markdown("""
+        <h2 style='margin-bottom: 0.5rem;'>Notify Platform Integration</h2>
+        <p style='color: #d4b896; margin-bottom: 1.5rem;'>Export and sync booking data with external notification platforms</p>
+    """, unsafe_allow_html=True)
+
+    # Load bookings
+    df, source = load_bookings_from_db(st.session_state.customer_id)
+
+    if df.empty:
+        st.info("No booking data available for export")
+        st.stop()
+
+    # Statistics
+    st.markdown("### Export Statistics")
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+
+    with col_stat1:
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #3d5266 0%, #5a6f85 100%); border: 2px solid #d4b896; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Total Records</div>
+                <div style='color: #f7f5f2; font-size: 2.5rem; font-weight: 700;'>{len(df)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_stat2:
+        confirmed_count = len(df[df['status'].isin(['Confirmed', 'Booked'])])
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 2px solid #10b981; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #ffffff; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Confirmed Bookings</div>
+                <div style='color: #ffffff; font-size: 2.5rem; font-weight: 700;'>{confirmed_count}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_stat3:
+        last_export = datetime.now().strftime('%b %d, %Y %I:%M %p')
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #3d5266 0%, #5a6f85 100%); border: 2px solid #d4b896; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <div style='color: #d4b896; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;'>Last Export</div>
+                <div style='color: #f7f5f2; font-size: 0.875rem; font-weight: 600;'>{last_export}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+    # Export Options
+    st.markdown("### Export Options")
+
+    # JSON Export
+    with st.expander("JSON Export", expanded=False):
+        st.markdown("Export booking data in JSON format for API integration")
+        if st.button("Generate JSON", key="gen_json", use_container_width=True):
+            json_data = export_to_json(df)
+            st.download_button(
+                label="Download JSON File",
+                data=json_data,
+                file_name=f"bookings_export_{datetime.now().strftime('%Y%m%d')}.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_json"
+            )
+            with st.expander("Preview JSON"):
+                st.code(json_data[:500] + "...", language="json")
+
+    # CSV Export for Notify
+    with st.expander("CSV Export (Notify Format)", expanded=False):
+        st.markdown("Export booking data in CSV format optimized for Notify platform import")
+        if st.button("Generate Notify CSV", key="gen_csv", use_container_width=True):
+            csv_data = export_notify_csv(df)
+            st.download_button(
+                label="Download Notify CSV",
+                data=csv_data,
+                file_name=f"notify_bookings_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_notify_csv"
+            )
+
+    # API Push
+    with st.expander("Push to Notify API", expanded=False):
+        st.markdown("Send booking data directly to Notify platform via API")
+        with st.form("api_push_form"):
+            api_endpoint = st.text_input("API Endpoint URL", placeholder="https://api.notify-platform.com/bookings")
+            api_key = st.text_input("API Key (Optional)", type="password", placeholder="Your API key")
+
+            # Filter options
+            st.markdown("#### Filter Options")
+            status_filter_api = st.multiselect(
+                "Export Status",
+                ["Inquiry", "Requested", "Confirmed", "Booked", "Rejected", "Cancelled"],
+                default=["Confirmed", "Booked"],
+                key="api_status_filter"
+            )
+
+            submit_api = st.form_submit_button("Push to API", use_container_width=True)
+
+            if submit_api:
+                if not api_endpoint:
+                    st.error("Please provide an API endpoint URL")
+                else:
+                    # Filter data
+                    filtered_df = df[df['status'].isin(status_filter_api)] if status_filter_api else df
+
+                    with st.spinner("Pushing data to Notify platform..."):
+                        success, message = push_to_notify_api(filtered_df, api_endpoint, api_key)
+
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
+
+    st.markdown("<div style='height: 2px; background: #6b7c3f; margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+    # Preview Export Data
+    st.markdown("### Preview Export Data")
+    preview_count = st.slider("Number of records to preview", min_value=5, max_value=50, value=10, key="preview_count")
+
+    export_preview = prepare_booking_data_for_export(df.head(preview_count))
+    preview_df = pd.DataFrame(export_preview)
+
+    st.dataframe(preview_df, use_container_width=True)
