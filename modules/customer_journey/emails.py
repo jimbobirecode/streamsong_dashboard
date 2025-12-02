@@ -38,21 +38,46 @@ def get_upcoming_bookings(days_ahead=3):
 
     target_date = (datetime.now() + timedelta(days=days_ahead)).date()
 
+    # Check if email tracking columns exist
     cursor.execute("""
-        SELECT
-            id,
-            booking_id,
-            guest_email,
-            guest_name,
-            date as play_date,
-            tee_time,
-            players,
-            pre_arrival_email_sent_at
-        FROM bookings
-        WHERE status = 'Confirmed'
-        AND date = %s
-        ORDER BY tee_time
-    """, (target_date,))
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'bookings'
+        AND column_name IN ('pre_arrival_email_sent_at', 'post_play_email_sent_at')
+    """)
+    existing_cols = [row['column_name'] for row in cursor.fetchall()]
+    has_email_tracking = 'pre_arrival_email_sent_at' in existing_cols
+
+    if has_email_tracking:
+        cursor.execute("""
+            SELECT
+                id,
+                booking_id,
+                guest_email,
+                date as play_date,
+                tee_time,
+                players,
+                pre_arrival_email_sent_at
+            FROM bookings
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY tee_time
+        """, (target_date,))
+    else:
+        cursor.execute("""
+            SELECT
+                id,
+                booking_id,
+                guest_email,
+                date as play_date,
+                tee_time,
+                players,
+                NULL as pre_arrival_email_sent_at
+            FROM bookings
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY tee_time
+        """, (target_date,))
 
     bookings = cursor.fetchall()
     cursor.close()
@@ -68,19 +93,42 @@ def get_recent_bookings(days_ago=2):
 
     target_date = (datetime.now() - timedelta(days=days_ago)).date()
 
+    # Check if email tracking columns exist
     cursor.execute("""
-        SELECT
-            id,
-            booking_id,
-            guest_email,
-            guest_name,
-            date as play_date,
-            post_play_email_sent_at
-        FROM bookings
-        WHERE status = 'Confirmed'
-        AND date = %s
-        ORDER BY guest_email
-    """, (target_date,))
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'bookings'
+        AND column_name IN ('pre_arrival_email_sent_at', 'post_play_email_sent_at')
+    """)
+    existing_cols = [row['column_name'] for row in cursor.fetchall()]
+    has_email_tracking = 'post_play_email_sent_at' in existing_cols
+
+    if has_email_tracking:
+        cursor.execute("""
+            SELECT
+                id,
+                booking_id,
+                guest_email,
+                date as play_date,
+                post_play_email_sent_at
+            FROM bookings
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY guest_email
+        """, (target_date,))
+    else:
+        cursor.execute("""
+            SELECT
+                id,
+                booking_id,
+                guest_email,
+                date as play_date,
+                NULL as post_play_email_sent_at
+            FROM bookings
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY guest_email
+        """, (target_date,))
 
     bookings = cursor.fetchall()
     cursor.close()
@@ -94,22 +142,39 @@ def mark_email_sent(booking_id, email_type):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if email_type == 'pre_arrival':
-        cursor.execute("""
-            UPDATE bookings
-            SET pre_arrival_email_sent_at = CURRENT_TIMESTAMP
-            WHERE booking_id = %s
-        """, (booking_id,))
-    elif email_type == 'post_play':
-        cursor.execute("""
-            UPDATE bookings
-            SET post_play_email_sent_at = CURRENT_TIMESTAMP
-            WHERE booking_id = %s
-        """, (booking_id,))
+    # Check if email tracking columns exist
+    cursor.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'bookings'
+        AND column_name IN ('pre_arrival_email_sent_at', 'post_play_email_sent_at')
+    """)
+    existing_cols = [row[0] for row in cursor.fetchall()]
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        if email_type == 'pre_arrival' and 'pre_arrival_email_sent_at' in existing_cols:
+            cursor.execute("""
+                UPDATE bookings
+                SET pre_arrival_email_sent_at = CURRENT_TIMESTAMP
+                WHERE booking_id = %s
+            """, (booking_id,))
+        elif email_type == 'post_play' and 'post_play_email_sent_at' in existing_cols:
+            cursor.execute("""
+                UPDATE bookings
+                SET post_play_email_sent_at = CURRENT_TIMESTAMP
+                WHERE booking_id = %s
+            """, (booking_id,))
+        else:
+            # Column doesn't exist - migration not run yet
+            st.warning("⚠️ Email tracking columns not found. Please run the database migration first.")
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ============================================================================
@@ -370,6 +435,23 @@ def render_customer_journey_page():
 
         conn = get_db_connection()
         cursor = conn.cursor(row_factory=dict_row)
+
+        # Check if email tracking columns exist
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'bookings'
+            AND column_name IN ('pre_arrival_email_sent_at', 'post_play_email_sent_at')
+        """)
+        existing_cols = [row['column_name'] for row in cursor.fetchall()]
+        has_email_tracking = len(existing_cols) > 0
+
+        if not has_email_tracking:
+            st.warning("⚠️ Email tracking columns not found. Please run the database migration first:")
+            st.code("psql $DATABASE_URL < migration_add_journey_emails.sql")
+            cursor.close()
+            conn.close()
+            return
 
         # Get 30-day stats
         cursor.execute("""
