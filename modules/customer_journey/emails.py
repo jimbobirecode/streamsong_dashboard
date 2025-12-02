@@ -306,6 +306,14 @@ def send_welcome_email(booking):
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_PRE_ARRIVAL:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_PRE_ARRIVAL environment variables."
 
+        # Validate required fields before sending
+        if not booking.get('booking_id'):
+            return False, "❌ Missing booking_id"
+        if not booking.get('guest_email'):
+            return False, "❌ Missing guest_email"
+        if not booking.get('play_date'):
+            return False, "❌ Missing play_date"
+
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
         # Format the play date nicely
@@ -378,6 +386,14 @@ def send_thank_you_email(booking):
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_POST_PLAY:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_POST_PLAY environment variables."
+
+        # Validate required fields before sending
+        if not booking.get('booking_id'):
+            return False, "❌ Missing booking_id"
+        if not booking.get('guest_email'):
+            return False, "❌ Missing guest_email"
+        if not booking.get('play_date'):
+            return False, "❌ Missing play_date"
 
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
