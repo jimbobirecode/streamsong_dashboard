@@ -41,6 +41,7 @@ def extract_tee_time_from_selected_tee_times(selected_tee_times):
     Extract tee time from selected_tee_times field which can be:
     - A JSON string containing {"time": "10:35 AM", ...}
     - A dict object
+    - A Go map format string like "map[...time:10:35 AM...]"
     - A simple string time value
     """
     if not selected_tee_times:
@@ -50,9 +51,9 @@ def extract_tee_time_from_selected_tee_times(selected_tee_times):
     if isinstance(selected_tee_times, dict):
         return selected_tee_times.get('time')
 
-    # If it's a string, try to parse as JSON
+    # If it's a string, try multiple parsing strategies
     if isinstance(selected_tee_times, str):
-        # Try parsing as JSON first
+        # Strategy 1: Try parsing as JSON
         try:
             import json
             data = json.loads(selected_tee_times)
@@ -61,7 +62,13 @@ def extract_tee_time_from_selected_tee_times(selected_tee_times):
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # If not JSON, maybe it's already just the time string
+        # Strategy 2: Check if it's a Go map format (map[...time:10:35 AM...])
+        # Extract time using regex from format like: map[...time:10:35 AM...]
+        map_time_match = re.search(r'time:(\d{1,2}:\d{2}\s*[AaPp][Mm])', selected_tee_times)
+        if map_time_match:
+            return map_time_match.group(1).strip()
+
+        # Strategy 3: If it's already just the time string
         # Check if it looks like a time (e.g., "10:35 AM")
         if re.match(r'\d{1,2}:\d{2}\s*[AaPp][Mm]', selected_tee_times):
             return selected_tee_times
