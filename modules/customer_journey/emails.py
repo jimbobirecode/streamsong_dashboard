@@ -58,10 +58,10 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
 
     # Build the WHERE clause based on show_all
     if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date >= CURRENT_DATE"
         params = ()
     else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date = %s"
         params = (target_date,)
 
     if has_email_tracking:
@@ -155,10 +155,10 @@ def get_recent_bookings(days_ago=2, show_all=False):
 
     # Build the WHERE clause based on show_all
     if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE - INTERVAL '30 days'"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date >= CURRENT_DATE - INTERVAL '30 days'"
         params = ()
     else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date = %s"
         params = (target_date,)
 
     if has_email_tracking:
@@ -306,6 +306,14 @@ def send_welcome_email(booking):
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_PRE_ARRIVAL:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_PRE_ARRIVAL environment variables."
 
+        # Validate required fields before sending
+        if not booking.get('booking_id'):
+            return False, "❌ Missing booking_id"
+        if not booking.get('guest_email'):
+            return False, "❌ Missing guest_email"
+        if not booking.get('play_date'):
+            return False, "❌ Missing play_date"
+
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
         # Format the play date nicely
@@ -329,18 +337,23 @@ def send_welcome_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
+        # === REQUIRED FIELDS - These populate your SendGrid template ===
         dynamic_data = {
+            # Core booking information (REQUIRED for template)
             'guest_name': guest_name,
-            'date': formatted_date,
-            'play_date': formatted_date,
+            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
             'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+
+            # Additional details
+            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
-            # Hotel details
+
+            # Hotel information
             'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
             'hotel_checkin': hotel_checkin_formatted,
             'hotel_checkout': hotel_checkout_formatted,
@@ -379,6 +392,14 @@ def send_thank_you_email(booking):
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_POST_PLAY:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_POST_PLAY environment variables."
 
+        # Validate required fields before sending
+        if not booking.get('booking_id'):
+            return False, "❌ Missing booking_id"
+        if not booking.get('guest_email'):
+            return False, "❌ Missing guest_email"
+        if not booking.get('play_date'):
+            return False, "❌ Missing play_date"
+
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
         # Format the play date nicely
@@ -402,18 +423,23 @@ def send_thank_you_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
+        # === REQUIRED FIELDS - These populate your SendGrid template ===
         dynamic_data = {
+            # Core booking information (REQUIRED for template)
             'guest_name': guest_name,
-            'date': formatted_date,
-            'play_date': formatted_date,
+            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
             'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+
+            # Additional details
+            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
-            # Hotel details
+
+            # Hotel information
             'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
             'hotel_checkin': hotel_checkin_formatted,
             'hotel_checkout': hotel_checkout_formatted,
