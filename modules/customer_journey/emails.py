@@ -7,6 +7,7 @@ Automated emails for golf club bookings:
 
 import streamlit as st
 import os
+import re
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -14,6 +15,25 @@ import pandas as pd
 from psycopg.rows import dict_row
 
 from ..database.connection import get_db_connection
+
+
+def extract_tee_time_from_note(note_content):
+    """Extract tee time from email/note content"""
+    if not note_content or pd.isna(note_content):
+        return None
+
+    patterns = [
+        r'Time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',
+        r'time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',
+        r'Tee\s+Time:\s*(\d{1,2}:\d{2}\s*[AaPp][Mm])',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, str(note_content), re.IGNORECASE)
+        if match:
+            return match.group(1).strip().upper()
+
+    return None
 
 
 # ============================================================================
@@ -64,6 +84,7 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
         where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date = %s"
         params = (target_date,)
 
+    # Note: We fetch 'note' field which contains email content with tee time info
     if has_email_tracking:
         cursor.execute(f"""
             SELECT
@@ -306,8 +327,13 @@ def send_welcome_email(booking):
         import streamlit as st
         tee_time_raw = booking.get('tee_time')
         selected_tee_times_raw = booking.get('selected_tee_times')
+        note_raw = booking.get('note')
         st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
         st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
+
+        # Extract tee time from note field if tee_time column is empty
+        extracted_from_note = extract_tee_time_from_note(note_raw) if note_raw else None
+        st.info(f"🔍 DEBUG - Tee time extracted from note: {repr(extracted_from_note)}")
 
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_PRE_ARRIVAL:
@@ -345,8 +371,12 @@ def send_welcome_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
-        # Try tee_time first, fall back to selected_tee_times if available
-        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or 'TBD'
+        # Try multiple sources for tee time:
+        # 1. tee_time column
+        # 2. selected_tee_times column
+        # 3. Extract from note field
+        # 4. Default to 'TBD'
+        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or extracted_from_note or 'TBD'
         st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
@@ -413,8 +443,13 @@ def send_thank_you_email(booking):
         import streamlit as st
         tee_time_raw = booking.get('tee_time')
         selected_tee_times_raw = booking.get('selected_tee_times')
+        note_raw = booking.get('note')
         st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
         st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
+
+        # Extract tee time from note field if tee_time column is empty
+        extracted_from_note = extract_tee_time_from_note(note_raw) if note_raw else None
+        st.info(f"🔍 DEBUG - Tee time extracted from note: {repr(extracted_from_note)}")
 
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_POST_PLAY:
@@ -452,8 +487,12 @@ def send_thank_you_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
-        # Try tee_time first, fall back to selected_tee_times if available
-        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or 'TBD'
+        # Try multiple sources for tee time:
+        # 1. tee_time column
+        # 2. selected_tee_times column
+        # 3. Extract from note field
+        # 4. Default to 'TBD'
+        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or extracted_from_note or 'TBD'
         st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
