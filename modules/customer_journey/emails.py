@@ -302,6 +302,11 @@ def get_proshop_items():
 def send_welcome_email(booking):
     """Send welcome email 3 days before play"""
     try:
+        # DEBUG: Show raw tee_time value from database
+        import streamlit as st
+        tee_time_raw = booking.get('tee_time')
+        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)} (type: {type(tee_time_raw).__name__})")
+
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_PRE_ARRIVAL:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_PRE_ARRIVAL environment variables."
@@ -338,12 +343,15 @@ def send_welcome_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
+        tee_time_value = booking.get('tee_time') or 'TBD'
+        st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
+
         dynamic_data = {
             # Your template uses these exact field names:
             'guest_name': guest_name,
             'booking_date': formatted_date,               # Template: {{booking_date}}
             'course_name': booking.get('golf_courses') or 'Streamsong Golf Resort',  # Template: {{course_name}}
-            'tee_time': booking.get('tee_time') or 'TBD',  # Template: {{tee_time}}
+            'tee_time': tee_time_value,  # Template: {{tee_time}}
             'player_count': str(booking.get('players', 0)),  # Template: {{player_count}}
             'booking_reference': booking['booking_id'],    # Template: {{booking_reference}}
             'product_price': '$98.00',                     # Template: {{product_price}}
@@ -373,6 +381,8 @@ def send_welcome_email(booking):
             'resort_fee_total': f"${booking.get('resort_fee_total', 0):.2f}" if booking.get('resort_fee_total') else '',
         }
 
+        st.info(f"🔍 DEBUG - Full dynamic_data keys: {list(dynamic_data.keys())}")
+
         message = Mail(
             from_email=(FROM_EMAIL, FROM_NAME),
             to_emails=booking['guest_email']
@@ -396,6 +406,11 @@ def send_welcome_email(booking):
 def send_thank_you_email(booking):
     """Send thank you email 2 days after play"""
     try:
+        # DEBUG: Show raw tee_time value from database
+        import streamlit as st
+        tee_time_raw = booking.get('tee_time')
+        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)} (type: {type(tee_time_raw).__name__})")
+
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_POST_PLAY:
             return False, "SendGrid not configured. Please set SENDGRID_API_KEY, FROM_EMAIL, and SENDGRID_TEMPLATE_POST_PLAY environment variables."
@@ -432,12 +447,15 @@ def send_thank_you_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
+        tee_time_value = booking.get('tee_time') or 'TBD'
+        st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
+
         dynamic_data = {
             # Your template uses these exact field names:
             'guest_name': guest_name,
             'booking_date': formatted_date,               # Template: {{booking_date}}
             'course_name': booking.get('golf_courses') or 'Streamsong Golf Resort',  # Template: {{course_name}}
-            'tee_time': booking.get('tee_time') or 'TBD',  # Template: {{tee_time}}
+            'tee_time': tee_time_value,  # Template: {{tee_time}}
             'player_count': str(booking.get('players', 0)),  # Template: {{player_count}}
             'booking_reference': booking['booking_id'],    # Template: {{booking_reference}}
             'product_price': '$98.00',                     # Template: {{product_price}}
@@ -466,6 +484,8 @@ def send_thank_you_email(booking):
             'resort_fee_per_person': f"${booking.get('resort_fee_per_person', 0):.2f}" if booking.get('resort_fee_per_person') else '',
             'resort_fee_total': f"${booking.get('resort_fee_total', 0):.2f}" if booking.get('resort_fee_total') else '',
         }
+
+        st.info(f"🔍 DEBUG - Full dynamic_data keys: {list(dynamic_data.keys())}")
 
         message = Mail(
             from_email=(FROM_EMAIL, FROM_NAME),
