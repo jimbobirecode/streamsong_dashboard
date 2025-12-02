@@ -57,6 +57,7 @@ def get_upcoming_bookings(days_ahead=3):
                 date as play_date,
                 tee_time,
                 players,
+                golf_courses,
                 pre_arrival_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -72,6 +73,7 @@ def get_upcoming_bookings(days_ahead=3):
                 date as play_date,
                 tee_time,
                 players,
+                golf_courses,
                 NULL as pre_arrival_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -110,6 +112,9 @@ def get_recent_bookings(days_ago=2):
                 booking_id,
                 guest_email,
                 date as play_date,
+                tee_time,
+                players,
+                golf_courses,
                 post_play_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -123,6 +128,9 @@ def get_recent_bookings(days_ago=2):
                 booking_id,
                 guest_email,
                 date as play_date,
+                tee_time,
+                players,
+                golf_courses,
                 NULL as post_play_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -220,11 +228,21 @@ def send_welcome_email(booking):
 
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
+        # Format the play date nicely
+        play_date = booking['play_date']
+        if hasattr(play_date, 'strftime'):
+            formatted_date = play_date.strftime('%A, %B %d, %Y')
+        else:
+            formatted_date = str(play_date)
+
         dynamic_data = {
             'guest_name': guest_name,
-            'play_date': str(booking['play_date']),
+            'date': formatted_date,
+            'play_date': formatted_date,  # Keep for backward compatibility
+            'course': booking.get('golf_courses', 'Streamsong Golf Resort'),
             'tee_time': booking.get('tee_time', 'TBD'),
             'players': booking['players'],
+            'booking_ref': booking['booking_id'],
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items()
         }
@@ -258,9 +276,21 @@ def send_thank_you_email(booking):
 
         guest_name = booking.get('guest_name') or booking['guest_email'].split('@')[0].title()
 
+        # Format the play date nicely
+        play_date = booking['play_date']
+        if hasattr(play_date, 'strftime'):
+            formatted_date = play_date.strftime('%A, %B %d, %Y')
+        else:
+            formatted_date = str(play_date)
+
         dynamic_data = {
             'guest_name': guest_name,
-            'play_date': str(booking['play_date']),
+            'date': formatted_date,
+            'play_date': formatted_date,  # Keep for backward compatibility
+            'course': booking.get('golf_courses', 'Streamsong Golf Resort'),
+            'tee_time': booking.get('tee_time', 'TBD'),
+            'players': booking['players'],
+            'booking_ref': booking['booking_id'],
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items()
         }
