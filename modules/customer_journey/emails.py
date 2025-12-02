@@ -58,10 +58,10 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
 
     # Build the WHERE clause based on show_all
     if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date >= CURRENT_DATE"
         params = ()
     else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date = %s"
         params = (target_date,)
 
     if has_email_tracking:
@@ -155,10 +155,10 @@ def get_recent_bookings(days_ago=2, show_all=False):
 
     # Build the WHERE clause based on show_all
     if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE - INTERVAL '30 days'"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date >= CURRENT_DATE - INTERVAL '30 days'"
         params = ()
     else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
+        where_clause = "WHERE club = 'streamsong' AND status = 'Confirmed' AND date = %s"
         params = (target_date,)
 
     if has_email_tracking:
