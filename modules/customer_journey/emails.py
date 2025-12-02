@@ -22,7 +22,7 @@ from ..database.connection import get_db_connection
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
 FROM_EMAIL = os.environ.get('FROM_EMAIL')
-FROM_NAME = os.environ.get('FROM_NAME', 'County Louth Golf Club')
+FROM_NAME = os.environ.get('FROM_NAME', 'Streamsong Golf Resort')
 TEMPLATE_PRE_ARRIVAL = os.environ.get('SENDGRID_TEMPLATE_PRE_ARRIVAL')
 TEMPLATE_POST_PLAY = os.environ.get('SENDGRID_TEMPLATE_POST_PLAY')
 
@@ -119,29 +119,29 @@ def mark_email_sent(booking_id, email_type):
 def get_proshop_items():
     """
     Return proshop items to feature in emails
-    CUSTOMIZE THIS with your actual products
+    CUSTOMIZE THIS with your actual products and pricing
     """
     return [
         {
-            'name': 'County Louth Cap',
-            'description': 'Premium embroidered cap with championship logo',
+            'name': 'Streamsong Resort Cap',
+            'description': 'Premium embroidered cap with Streamsong logo',
             'price': '35',
-            'image_url': 'https://yoursite.com/images/cap.jpg',
-            'url': 'https://yourshop.com/cap'
+            'image_url': 'https://streamsonggolf.com/images/cap.jpg',
+            'url': 'https://streamsonggolf.com/proshop/cap'
         },
         {
             'name': 'Titleist Pro V1',
-            'description': 'Dozen premium golf balls - perfect for links play',
+            'description': 'Dozen premium golf balls - perfect for Streamsong courses',
             'price': '55',
-            'image_url': 'https://yoursite.com/images/balls.jpg',
-            'url': 'https://yourshop.com/balls'
+            'image_url': 'https://streamsonggolf.com/images/balls.jpg',
+            'url': 'https://streamsonggolf.com/proshop/balls'
         },
         {
-            'name': 'Wind Jacket',
-            'description': 'Lightweight waterproof jacket',
-            'price': '95',
-            'image_url': 'https://yoursite.com/images/jacket.jpg',
-            'url': 'https://yourshop.com/jacket'
+            'name': 'Streamsong Performance Polo',
+            'description': 'Moisture-wicking performance polo with resort logo',
+            'price': '85',
+            'image_url': 'https://streamsonggolf.com/images/polo.jpg',
+            'url': 'https://streamsonggolf.com/proshop/polo'
         }
     ]
 
