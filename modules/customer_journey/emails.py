@@ -337,18 +337,26 @@ def send_welcome_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
-        # === REQUIRED FIELDS - These populate your SendGrid template ===
+        # === REQUIRED FIELDS - Match your SendGrid template exactly ===
         dynamic_data = {
-            # Core booking information (REQUIRED for template)
+            # Your template uses these exact field names:
             'guest_name': guest_name,
-            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
+            'booking_date': formatted_date,               # Template: {{booking_date}}
+            'course_name': booking.get('golf_courses') or 'Streamsong Golf Resort',  # Template: {{course_name}}
+            'tee_time': booking.get('tee_time') or 'TBD',  # Template: {{tee_time}}
+            'player_count': str(booking.get('players', 0)),  # Template: {{player_count}}
+            'booking_reference': booking['booking_id'],    # Template: {{booking_reference}}
+            'product_price': '$98.00',                     # Template: {{product_price}}
+            'current_year': str(datetime.now().year),     # Template: {{current_year}}
+
+            # Backward compatibility (keep these for old templates)
+            'date': formatted_date,
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
-            'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+            'play_date': formatted_date,
 
             # Additional details
-            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
@@ -423,18 +431,26 @@ def send_thank_you_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
-        # === REQUIRED FIELDS - These populate your SendGrid template ===
+        # === REQUIRED FIELDS - Match your SendGrid template exactly ===
         dynamic_data = {
-            # Core booking information (REQUIRED for template)
+            # Your template uses these exact field names:
             'guest_name': guest_name,
-            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
+            'booking_date': formatted_date,               # Template: {{booking_date}}
+            'course_name': booking.get('golf_courses') or 'Streamsong Golf Resort',  # Template: {{course_name}}
+            'tee_time': booking.get('tee_time') or 'TBD',  # Template: {{tee_time}}
+            'player_count': str(booking.get('players', 0)),  # Template: {{player_count}}
+            'booking_reference': booking['booking_id'],    # Template: {{booking_reference}}
+            'product_price': '$98.00',                     # Template: {{product_price}}
+            'current_year': str(datetime.now().year),     # Template: {{current_year}}
+
+            # Backward compatibility (keep these for old templates)
+            'date': formatted_date,
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
-            'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+            'play_date': formatted_date,
 
             # Additional details
-            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
