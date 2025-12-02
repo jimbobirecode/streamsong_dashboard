@@ -54,10 +54,23 @@ def get_upcoming_bookings(days_ahead=3):
                 id,
                 booking_id,
                 guest_email,
+                guest_name,
                 date as play_date,
                 tee_time,
                 players,
+                total,
                 golf_courses,
+                selected_tee_times,
+                note,
+                hotel_required,
+                hotel_checkin,
+                hotel_checkout,
+                lodging_nights,
+                lodging_rooms,
+                lodging_room_type,
+                lodging_cost,
+                resort_fee_per_person,
+                resort_fee_total,
                 pre_arrival_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -70,10 +83,23 @@ def get_upcoming_bookings(days_ahead=3):
                 id,
                 booking_id,
                 guest_email,
+                guest_name,
                 date as play_date,
                 tee_time,
                 players,
+                total,
                 golf_courses,
+                selected_tee_times,
+                note,
+                hotel_required,
+                hotel_checkin,
+                hotel_checkout,
+                lodging_nights,
+                lodging_rooms,
+                lodging_room_type,
+                lodging_cost,
+                resort_fee_per_person,
+                resort_fee_total,
                 NULL as pre_arrival_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -111,10 +137,23 @@ def get_recent_bookings(days_ago=2):
                 id,
                 booking_id,
                 guest_email,
+                guest_name,
                 date as play_date,
                 tee_time,
                 players,
+                total,
                 golf_courses,
+                selected_tee_times,
+                note,
+                hotel_required,
+                hotel_checkin,
+                hotel_checkout,
+                lodging_nights,
+                lodging_rooms,
+                lodging_room_type,
+                lodging_cost,
+                resort_fee_per_person,
+                resort_fee_total,
                 post_play_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -127,10 +166,23 @@ def get_recent_bookings(days_ago=2):
                 id,
                 booking_id,
                 guest_email,
+                guest_name,
                 date as play_date,
                 tee_time,
                 players,
+                total,
                 golf_courses,
+                selected_tee_times,
+                note,
+                hotel_required,
+                hotel_checkin,
+                hotel_checkout,
+                lodging_nights,
+                lodging_rooms,
+                lodging_room_type,
+                lodging_cost,
+                resort_fee_per_person,
+                resort_fee_total,
                 NULL as post_play_email_sent_at
             FROM bookings
             WHERE status = 'Confirmed'
@@ -235,16 +287,41 @@ def send_welcome_email(booking):
         else:
             formatted_date = str(play_date)
 
+        # Format hotel dates if present
+        hotel_checkin_formatted = ''
+        hotel_checkout_formatted = ''
+        if booking.get('hotel_checkin'):
+            if hasattr(booking['hotel_checkin'], 'strftime'):
+                hotel_checkin_formatted = booking['hotel_checkin'].strftime('%A, %B %d, %Y')
+            else:
+                hotel_checkin_formatted = str(booking['hotel_checkin'])
+        if booking.get('hotel_checkout'):
+            if hasattr(booking['hotel_checkout'], 'strftime'):
+                hotel_checkout_formatted = booking['hotel_checkout'].strftime('%A, %B %d, %Y')
+            else:
+                hotel_checkout_formatted = str(booking['hotel_checkout'])
+
         dynamic_data = {
             'guest_name': guest_name,
             'date': formatted_date,
-            'play_date': formatted_date,  # Keep for backward compatibility
-            'course': booking.get('golf_courses', 'Streamsong Golf Resort'),
-            'tee_time': booking.get('tee_time', 'TBD'),
-            'players': booking['players'],
+            'play_date': formatted_date,
+            'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
+            'tee_time': booking.get('tee_time') or 'TBD',
+            'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+            'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
-            'proshop_items': get_proshop_items()
+            'proshop_items': get_proshop_items(),
+            # Hotel details
+            'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
+            'hotel_checkin': hotel_checkin_formatted,
+            'hotel_checkout': hotel_checkout_formatted,
+            'lodging_nights': str(booking.get('lodging_nights') or 0),
+            'lodging_rooms': str(booking.get('lodging_rooms') or 0),
+            'lodging_room_type': booking.get('lodging_room_type') or '',
+            'lodging_cost': f"${booking.get('lodging_cost', 0):.2f}" if booking.get('lodging_cost') else '',
+            'resort_fee_per_person': f"${booking.get('resort_fee_per_person', 0):.2f}" if booking.get('resort_fee_per_person') else '',
+            'resort_fee_total': f"${booking.get('resort_fee_total', 0):.2f}" if booking.get('resort_fee_total') else '',
         }
 
         message = Mail(
@@ -283,16 +360,41 @@ def send_thank_you_email(booking):
         else:
             formatted_date = str(play_date)
 
+        # Format hotel dates if present
+        hotel_checkin_formatted = ''
+        hotel_checkout_formatted = ''
+        if booking.get('hotel_checkin'):
+            if hasattr(booking['hotel_checkin'], 'strftime'):
+                hotel_checkin_formatted = booking['hotel_checkin'].strftime('%A, %B %d, %Y')
+            else:
+                hotel_checkin_formatted = str(booking['hotel_checkin'])
+        if booking.get('hotel_checkout'):
+            if hasattr(booking['hotel_checkout'], 'strftime'):
+                hotel_checkout_formatted = booking['hotel_checkout'].strftime('%A, %B %d, %Y')
+            else:
+                hotel_checkout_formatted = str(booking['hotel_checkout'])
+
         dynamic_data = {
             'guest_name': guest_name,
             'date': formatted_date,
-            'play_date': formatted_date,  # Keep for backward compatibility
-            'course': booking.get('golf_courses', 'Streamsong Golf Resort'),
-            'tee_time': booking.get('tee_time', 'TBD'),
-            'players': booking['players'],
+            'play_date': formatted_date,
+            'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
+            'tee_time': booking.get('tee_time') or 'TBD',
+            'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+            'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
-            'proshop_items': get_proshop_items()
+            'proshop_items': get_proshop_items(),
+            # Hotel details
+            'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
+            'hotel_checkin': hotel_checkin_formatted,
+            'hotel_checkout': hotel_checkout_formatted,
+            'lodging_nights': str(booking.get('lodging_nights') or 0),
+            'lodging_rooms': str(booking.get('lodging_rooms') or 0),
+            'lodging_room_type': booking.get('lodging_room_type') or '',
+            'lodging_cost': f"${booking.get('lodging_cost', 0):.2f}" if booking.get('lodging_cost') else '',
+            'resort_fee_per_person': f"${booking.get('resort_fee_per_person', 0):.2f}" if booking.get('resort_fee_per_person') else '',
+            'resort_fee_total': f"${booking.get('resort_fee_total', 0):.2f}" if booking.get('resort_fee_total') else '',
         }
 
         message = Mail(
