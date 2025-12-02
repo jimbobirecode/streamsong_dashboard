@@ -47,6 +47,9 @@ from modules.analytics import (
     calculate_golf_course_popularity,
     identify_marketing_segments
 )
+from modules.customer_journey import (
+    render_customer_journey_page
+)
 
 
 # ========================================
@@ -272,7 +275,7 @@ with st.sidebar:
     if 'current_page' not in st.session_state:
         st.session_state.current_page = "Bookings"
 
-    nav_options = ["Bookings", "Waitlist", "Reports & Analytics", "Marketing Segmentation", "Notify Integration"]
+    nav_options = ["Bookings", "Waitlist", "Reports & Analytics", "Marketing Segmentation", "Notify Integration", "Customer Journey Emails"]
 
     st.radio(
         "Select View",
@@ -2088,3 +2091,10 @@ elif page == "Notify Integration":
     preview_df = pd.DataFrame(export_preview)
 
     st.dataframe(preview_df, use_container_width=True)
+
+
+# ========================================
+# CUSTOMER JOURNEY EMAILS VIEW
+# ========================================
+elif page == "Customer Journey Emails":
+    render_customer_journey_page()
