@@ -31,20 +31,12 @@ TEMPLATE_POST_PLAY = os.environ.get('SENDGRID_TEMPLATE_POST_PLAY')
 # DATABASE FUNCTIONS
 # ============================================================================
 
-def get_upcoming_bookings(days_ahead=3, show_all=False):
-    """Get bookings N days from now that need welcome emails
-
-    Args:
-        days_ahead: Number of days ahead to look (default: 3)
-        show_all: If True, show ALL upcoming confirmed bookings
-    """
+def get_upcoming_bookings(days_ahead=3):
+    """Get bookings N days from now that need welcome emails"""
     conn = get_db_connection()
     cursor = conn.cursor(row_factory=dict_row)
 
-    if not show_all:
-        target_date = (datetime.now() + timedelta(days=days_ahead)).date()
-    else:
-        target_date = None
+    target_date = (datetime.now() + timedelta(days=days_ahead)).date()
 
     # Check if email tracking columns exist
     cursor.execute("""
@@ -56,16 +48,8 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
     existing_cols = [row['column_name'] for row in cursor.fetchall()]
     has_email_tracking = 'pre_arrival_email_sent_at' in existing_cols
 
-    # Build the WHERE clause based on show_all
-    if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE"
-        params = ()
-    else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
-        params = (target_date,)
-
     if has_email_tracking:
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT
                 id,
                 booking_id,
@@ -89,11 +73,12 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
                 resort_fee_total,
                 pre_arrival_email_sent_at
             FROM bookings
-            {where_clause}
-            ORDER BY date, tee_time
-        """, params)
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY tee_time
+        """, (target_date,))
     else:
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT
                 id,
                 booking_id,
@@ -117,9 +102,10 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
                 resort_fee_total,
                 NULL as pre_arrival_email_sent_at
             FROM bookings
-            {where_clause}
-            ORDER BY date, tee_time
-        """, params)
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY tee_time
+        """, (target_date,))
 
     bookings = cursor.fetchall()
     cursor.close()
@@ -128,20 +114,12 @@ def get_upcoming_bookings(days_ahead=3, show_all=False):
     return bookings
 
 
-def get_recent_bookings(days_ago=2, show_all=False):
-    """Get bookings from N days ago that need thank you emails
-
-    Args:
-        days_ago: Number of days ago to look (default: 2)
-        show_all: If True, show ALL recent confirmed bookings (last 30 days)
-    """
+def get_recent_bookings(days_ago=2):
+    """Get bookings from N days ago that need thank you emails"""
     conn = get_db_connection()
     cursor = conn.cursor(row_factory=dict_row)
 
-    if not show_all:
-        target_date = (datetime.now() - timedelta(days=days_ago)).date()
-    else:
-        target_date = None
+    target_date = (datetime.now() - timedelta(days=days_ago)).date()
 
     # Check if email tracking columns exist
     cursor.execute("""
@@ -153,16 +131,8 @@ def get_recent_bookings(days_ago=2, show_all=False):
     existing_cols = [row['column_name'] for row in cursor.fetchall()]
     has_email_tracking = 'post_play_email_sent_at' in existing_cols
 
-    # Build the WHERE clause based on show_all
-    if show_all:
-        where_clause = "WHERE status = 'Confirmed' AND date >= CURRENT_DATE - INTERVAL '30 days'"
-        params = ()
-    else:
-        where_clause = "WHERE status = 'Confirmed' AND date = %s"
-        params = (target_date,)
-
     if has_email_tracking:
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT
                 id,
                 booking_id,
@@ -186,11 +156,12 @@ def get_recent_bookings(days_ago=2, show_all=False):
                 resort_fee_total,
                 post_play_email_sent_at
             FROM bookings
-            {where_clause}
-            ORDER BY date DESC, guest_email
-        """, params)
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY guest_email
+        """, (target_date,))
     else:
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT
                 id,
                 booking_id,
@@ -214,9 +185,10 @@ def get_recent_bookings(days_ago=2, show_all=False):
                 resort_fee_total,
                 NULL as post_play_email_sent_at
             FROM bookings
-            {where_clause}
-            ORDER BY date DESC, guest_email
-        """, params)
+            WHERE status = 'Confirmed'
+            AND date = %s
+            ORDER BY guest_email
+        """, (target_date,))
 
     bookings = cursor.fetchall()
     cursor.close()
@@ -468,23 +440,14 @@ def render_customer_journey_page():
     with tab1:
         st.subheader("Welcome Emails - Send 3 Days Before Play")
 
-        # Add checkbox to show all bookings
-        show_all_upcoming = st.checkbox("📋 Show all upcoming bookings (send immediately)", key="show_all_upcoming")
-
-        bookings = get_upcoming_bookings(days_ahead=3, show_all=show_all_upcoming)
+        bookings = get_upcoming_bookings(days_ahead=3)
 
         if not bookings:
-            if show_all_upcoming:
-                st.info("No upcoming confirmed bookings found")
-            else:
-                target_date = (datetime.now() + timedelta(days=3)).date()
-                st.info(f"No bookings scheduled for {target_date.strftime('%B %d, %Y')} (3 days from now)")
+            target_date = (datetime.now() + timedelta(days=3)).date()
+            st.info(f"No bookings scheduled for {target_date.strftime('%B %d, %Y')} (3 days from now)")
         else:
-            if show_all_upcoming:
-                st.success(f"**{len(bookings)} upcoming bookings** (send immediately to any)")
-            else:
-                target_date = bookings[0]['play_date']
-                st.success(f"**{len(bookings)} bookings** scheduled for {target_date.strftime('%B %d, %Y')}")
+            target_date = bookings[0]['play_date']
+            st.success(f"**{len(bookings)} bookings** scheduled for {target_date.strftime('%B %d, %Y')}")
 
             # Display each booking
             for booking in bookings:
@@ -492,8 +455,7 @@ def render_customer_journey_page():
 
                 with col1:
                     st.markdown(f"**{booking['guest_email']}**")
-                    date_str = booking['play_date'].strftime('%b %d') if hasattr(booking['play_date'], 'strftime') else str(booking['play_date'])
-                    st.caption(f"📅 {date_str} • 🕐 {booking.get('tee_time', 'TBD')} • {booking['players']} players")
+                    st.caption(f"🕐 {booking.get('tee_time', 'TBD')} • {booking['players']} players")
 
                 with col2:
                     if booking['pre_arrival_email_sent_at']:
@@ -541,23 +503,14 @@ def render_customer_journey_page():
     with tab2:
         st.subheader("Thank You Emails - Send 2 Days After Play")
 
-        # Add checkbox to show all bookings
-        show_all_recent = st.checkbox("📋 Show all recent bookings (last 30 days, send immediately)", key="show_all_recent")
-
-        bookings = get_recent_bookings(days_ago=2, show_all=show_all_recent)
+        bookings = get_recent_bookings(days_ago=2)
 
         if not bookings:
-            if show_all_recent:
-                st.info("No recent confirmed bookings found (last 30 days)")
-            else:
-                target_date = (datetime.now() - timedelta(days=2)).date()
-                st.info(f"No bookings from {target_date.strftime('%B %d, %Y')} (2 days ago)")
+            target_date = (datetime.now() - timedelta(days=2)).date()
+            st.info(f"No bookings from {target_date.strftime('%B %d, %Y')} (2 days ago)")
         else:
-            if show_all_recent:
-                st.success(f"**{len(bookings)} recent bookings** (last 30 days - send immediately to any)")
-            else:
-                target_date = bookings[0]['play_date']
-                st.success(f"**{len(bookings)} guests** played on {target_date.strftime('%B %d, %Y')}")
+            target_date = bookings[0]['play_date']
+            st.success(f"**{len(bookings)} guests** played on {target_date.strftime('%B %d, %Y')}")
 
             for booking in bookings:
                 col1, col2, col3 = st.columns([3, 2, 2])
