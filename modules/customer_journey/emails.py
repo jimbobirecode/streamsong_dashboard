@@ -337,18 +337,23 @@ def send_welcome_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
+        # === REQUIRED FIELDS - These populate your SendGrid template ===
         dynamic_data = {
+            # Core booking information (REQUIRED for template)
             'guest_name': guest_name,
-            'date': formatted_date,
-            'play_date': formatted_date,
+            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
             'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+
+            # Additional details
+            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
-            # Hotel details
+
+            # Hotel information
             'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
             'hotel_checkin': hotel_checkin_formatted,
             'hotel_checkout': hotel_checkout_formatted,
@@ -418,18 +423,23 @@ def send_thank_you_email(booking):
             else:
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
+        # === REQUIRED FIELDS - These populate your SendGrid template ===
         dynamic_data = {
+            # Core booking information (REQUIRED for template)
             'guest_name': guest_name,
-            'date': formatted_date,
-            'play_date': formatted_date,
+            'date': formatted_date,                    # e.g., "Monday, December 05, 2025"
             'course': booking.get('golf_courses') or 'Streamsong Golf Resort',
             'tee_time': booking.get('tee_time') or 'TBD',
             'players': str(booking.get('players', 0)),
             'booking_ref': booking['booking_id'],
+
+            # Additional details
+            'play_date': formatted_date,
             'total': f"${booking.get('total', 0):.2f}" if booking.get('total') else '$0.00',
             'club_email': FROM_EMAIL,
             'proshop_items': get_proshop_items(),
-            # Hotel details
+
+            # Hotel information
             'hotel_required': 'Yes' if booking.get('hotel_required') else 'No',
             'hotel_checkin': hotel_checkin_formatted,
             'hotel_checkout': hotel_checkout_formatted,
