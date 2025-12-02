@@ -36,6 +36,39 @@ def extract_tee_time_from_note(note_content):
     return None
 
 
+def extract_tee_time_from_selected_tee_times(selected_tee_times):
+    """
+    Extract tee time from selected_tee_times field which can be:
+    - A JSON string containing {"time": "10:35 AM", ...}
+    - A dict object
+    - A simple string time value
+    """
+    if not selected_tee_times:
+        return None
+
+    # If it's already a dict, extract the 'time' key
+    if isinstance(selected_tee_times, dict):
+        return selected_tee_times.get('time')
+
+    # If it's a string, try to parse as JSON
+    if isinstance(selected_tee_times, str):
+        # Try parsing as JSON first
+        try:
+            import json
+            data = json.loads(selected_tee_times)
+            if isinstance(data, dict) and 'time' in data:
+                return data['time']
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # If not JSON, maybe it's already just the time string
+        # Check if it looks like a time (e.g., "10:35 AM")
+        if re.match(r'\d{1,2}:\d{2}\s*[AaPp][Mm]', selected_tee_times):
+            return selected_tee_times
+
+    return None
+
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -331,8 +364,10 @@ def send_welcome_email(booking):
         st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
         st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
 
-        # Extract tee time from note field if tee_time column is empty
+        # Extract tee time from various sources
+        extracted_from_selected = extract_tee_time_from_selected_tee_times(selected_tee_times_raw)
         extracted_from_note = extract_tee_time_from_note(note_raw) if note_raw else None
+        st.info(f"🔍 DEBUG - Tee time extracted from selected_tee_times: {repr(extracted_from_selected)}")
         st.info(f"🔍 DEBUG - Tee time extracted from note: {repr(extracted_from_note)}")
 
         # Check if SendGrid is configured
@@ -372,12 +407,12 @@ def send_welcome_email(booking):
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
         # Try multiple sources for tee time:
-        # 1. tee_time column
-        # 2. selected_tee_times column
-        # 3. Extract from note field
+        # 1. tee_time column (if it's a simple string)
+        # 2. Extract from selected_tee_times JSON (e.g., {"time": "10:35 AM"})
+        # 3. Extract from note field using regex
         # 4. Default to 'TBD'
-        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or extracted_from_note or 'TBD'
-        st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
+        tee_time_value = booking.get('tee_time') or extracted_from_selected or extracted_from_note or 'TBD'
+        st.info(f"🔍 DEBUG - Final tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
             # Your template uses these exact field names:
@@ -447,8 +482,10 @@ def send_thank_you_email(booking):
         st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
         st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
 
-        # Extract tee time from note field if tee_time column is empty
+        # Extract tee time from various sources
+        extracted_from_selected = extract_tee_time_from_selected_tee_times(selected_tee_times_raw)
         extracted_from_note = extract_tee_time_from_note(note_raw) if note_raw else None
+        st.info(f"🔍 DEBUG - Tee time extracted from selected_tee_times: {repr(extracted_from_selected)}")
         st.info(f"🔍 DEBUG - Tee time extracted from note: {repr(extracted_from_note)}")
 
         # Check if SendGrid is configured
@@ -488,12 +525,12 @@ def send_thank_you_email(booking):
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
         # Try multiple sources for tee time:
-        # 1. tee_time column
-        # 2. selected_tee_times column
-        # 3. Extract from note field
+        # 1. tee_time column (if it's a simple string)
+        # 2. Extract from selected_tee_times JSON (e.g., {"time": "10:35 AM"})
+        # 3. Extract from note field using regex
         # 4. Default to 'TBD'
-        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or extracted_from_note or 'TBD'
-        st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
+        tee_time_value = booking.get('tee_time') or extracted_from_selected or extracted_from_note or 'TBD'
+        st.info(f"🔍 DEBUG - Final tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
             # Your template uses these exact field names:
