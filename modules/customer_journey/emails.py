@@ -305,7 +305,9 @@ def send_welcome_email(booking):
         # DEBUG: Show raw tee_time value from database
         import streamlit as st
         tee_time_raw = booking.get('tee_time')
-        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)} (type: {type(tee_time_raw).__name__})")
+        selected_tee_times_raw = booking.get('selected_tee_times')
+        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
+        st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
 
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_PRE_ARRIVAL:
@@ -343,7 +345,8 @@ def send_welcome_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
-        tee_time_value = booking.get('tee_time') or 'TBD'
+        # Try tee_time first, fall back to selected_tee_times if available
+        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or 'TBD'
         st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
@@ -409,7 +412,9 @@ def send_thank_you_email(booking):
         # DEBUG: Show raw tee_time value from database
         import streamlit as st
         tee_time_raw = booking.get('tee_time')
-        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)} (type: {type(tee_time_raw).__name__})")
+        selected_tee_times_raw = booking.get('selected_tee_times')
+        st.info(f"🔍 DEBUG - Raw tee_time from DB: {repr(tee_time_raw)}")
+        st.info(f"🔍 DEBUG - Raw selected_tee_times from DB: {repr(selected_tee_times_raw)}")
 
         # Check if SendGrid is configured
         if not SENDGRID_API_KEY or not FROM_EMAIL or not TEMPLATE_POST_PLAY:
@@ -447,7 +452,8 @@ def send_thank_you_email(booking):
                 hotel_checkout_formatted = str(booking['hotel_checkout'])
 
         # === REQUIRED FIELDS - Match your SendGrid template exactly ===
-        tee_time_value = booking.get('tee_time') or 'TBD'
+        # Try tee_time first, fall back to selected_tee_times if available
+        tee_time_value = booking.get('tee_time') or booking.get('selected_tee_times') or 'TBD'
         st.info(f"🔍 DEBUG - Tee time being sent to SendGrid: {repr(tee_time_value)}")
 
         dynamic_data = {
